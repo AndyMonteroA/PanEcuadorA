@@ -43,6 +43,13 @@
   animation: float 3s ease-in-out infinite;
 }
 
+.logo-img {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+  animation: float 3s ease-in-out infinite;
+}
+
 .logo-text {
   display: flex;
   flex-direction: column;
@@ -277,6 +284,12 @@
   color: white;
   background: rgba(255, 255, 255, 0.1);
   border-bottom-color: var(--color-primary-light);
+}
+
+.category-link svg {
+  margin-right: 8px;
+  font-size: 1.1rem;
+  flex-shrink: 0;
 }
 
 .panpass-link {

@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { FiShoppingCart, FiUser, FiSearch, FiMenu, FiX, FiBell, FiHeart, FiPackage, FiLogOut } from 'react-icons/fi';
+import logoImg from '../../assets/logo.png';
+import { FaBreadSlice, FaBirthdayCake, FaCookie, FaIceCream, FaSeedling, FaGift, FaStar } from 'react-icons/fa';
 import './Navbar.css';
 
 export default function Navbar() {
@@ -39,7 +41,7 @@ export default function Navbar() {
       <div className="navbar-container">
         {/* Logo */}
         <Link to="/" className="navbar-logo">
-          <span className="logo-icon">🍞</span>
+          <img src={logoImg} className="logo-img" alt="PanEcuador Logo" />
           <div className="logo-text">
             <span className="logo-name">PanEcuador</span>
             <span className="logo-tagline">Panadería artesanal</span>
@@ -129,13 +131,13 @@ export default function Navbar() {
       <div className="navbar-categories">
         <div className="navbar-container categories-scroll">
           <Link to="/catalogo" className="category-link">Todos</Link>
-          <Link to="/catalogo?categoria=1" className="category-link">🥖 Panes</Link>
-          <Link to="/catalogo?categoria=2" className="category-link">🎂 Pasteles</Link>
-          <Link to="/catalogo?categoria=3" className="category-link">🥮 Bocaditos</Link>
-          <Link to="/catalogo?categoria=4" className="category-link">🍰 Postres</Link>
-          <Link to="/catalogo?categoria=5" className="category-link">🌾 Sin Gluten</Link>
-          <Link to="/catalogo?categoria=6" className="category-link">🎄 Temporada</Link>
-          <Link to="/panpass" className="category-link panpass-link">⭐ PanPass</Link>
+          <Link to="/catalogo?categoria=1" className="category-link"><FaBreadSlice /> Panes</Link>
+          <Link to="/catalogo?categoria=2" className="category-link"><FaBirthdayCake /> Pasteles</Link>
+          <Link to="/catalogo?categoria=3" className="category-link"><FaCookie /> Bocaditos</Link>
+          <Link to="/catalogo?categoria=4" className="category-link"><FaIceCream /> Postres</Link>
+          <Link to="/catalogo?categoria=5" className="category-link"><FaSeedling /> Sin Gluten</Link>
+          <Link to="/catalogo?categoria=6" className="category-link"><FaGift /> Temporada</Link>
+          <Link to="/panpass" className="category-link panpass-link"><FaStar /> PanPass</Link>
         </div>
       </div>
 
