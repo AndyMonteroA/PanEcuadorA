@@ -1,0 +1,257 @@
+/* ============================================================
+   PANPASS PAGE STYLES
+   ============================================================ */
+
+.panpass-page { min-height: 100vh; }
+
+/* Hero */
+.pp-hero {
+  position: relative;
+  padding: calc(var(--navbar-height) + 38px + var(--space-3xl)) 0 var(--space-3xl);
+  background: linear-gradient(135deg, var(--color-secondary) 0%, #3D2C1E 50%, #2D2016 100%);
+  text-align: center;
+  color: white;
+  overflow: hidden;
+}
+
+.pp-hero-bg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 50%, rgba(212, 160, 23, 0.15) 0%, transparent 50%),
+              radial-gradient(circle at 70% 30%, rgba(196, 127, 59, 0.1) 0%, transparent 40%);
+}
+
+.pp-hero-content {
+  position: relative;
+  z-index: 2;
+}
+
+.pp-hero-badge {
+  display: inline-block;
+  background: var(--panpass-gradient);
+  color: #1A120B;
+  padding: 8px 24px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.pp-hero h1 {
+  font-size: var(--fs-3xl);
+  max-width: 600px;
+  margin: 0 auto var(--space-md);
+}
+
+.pp-hero p {
+  font-size: var(--fs-md);
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 550px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+/* Benefits */
+.pp-benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-lg);
+}
+
+.pp-benefit {
+  text-align: center;
+  padding: var(--space-xl);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
+}
+
+.pp-benefit:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg);
+}
+
+.pp-benefit-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  background: var(--panpass-gradient);
+  color: #1A120B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  margin: 0 auto var(--space-md);
+}
+
+.pp-benefit h3 {
+  font-size: var(--fs-md);
+  margin-bottom: var(--space-xs);
+}
+
+.pp-benefit p {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* Active subscription */
+.pp-active-card {
+  background: linear-gradient(135deg, var(--color-secondary), #3D2C1E);
+  border-radius: var(--radius-xl);
+  padding: var(--space-2xl);
+  color: white;
+  border: 2px solid var(--panpass-gold);
+}
+
+.pp-active-header { margin-bottom: var(--space-xl); }
+
+.pp-active-badge {
+  display: inline-block;
+  background: var(--panpass-gradient);
+  color: #1A120B;
+  padding: 4px 16px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+}
+
+.pp-active-details {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+
+.pp-active-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pp-active-detail span { font-size: var(--fs-xs); color: rgba(255, 255, 255, 0.5); }
+.pp-active-detail strong { font-size: var(--fs-md); }
+
+.pp-boxes { margin-top: var(--space-lg); }
+.pp-boxes h3 { margin-bottom: var(--space-md); font-size: var(--fs-md); }
+
+.pp-boxes-grid {
+  display: flex;
+  gap: var(--space-sm);
+  overflow-x: auto;
+}
+
+.pp-box-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  min-width: 150px;
+  text-transform: capitalize;
+}
+
+.pp-box-date { font-size: var(--fs-sm); }
+
+/* Plans */
+.pp-plans-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-xl);
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.pp-plan-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-xl);
+  padding: var(--space-2xl);
+  box-shadow: var(--shadow-md);
+  border: 2px solid transparent;
+  transition: all var(--transition-base);
+  position: relative;
+}
+
+.pp-plan-card:hover {
+  box-shadow: var(--shadow-xl);
+  transform: translateY(-4px);
+}
+
+.pp-plan-featured {
+  border-color: var(--panpass-gold);
+  box-shadow: var(--shadow-xl), 0 0 30px rgba(212, 160, 23, 0.15);
+}
+
+.pp-plan-popular {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--panpass-gradient);
+  color: #1A120B;
+  padding: 6px 20px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pp-plan-card h3 {
+  font-size: var(--fs-xl);
+  margin-bottom: var(--space-md);
+}
+
+.pp-plan-price {
+  margin-bottom: var(--space-md);
+}
+
+.pp-price-amount {
+  font-family: var(--font-heading);
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+.pp-price-period {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.pp-plan-desc {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin-bottom: var(--space-lg);
+  line-height: 1.6;
+}
+
+.pp-plan-features {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xl);
+}
+
+.pp-plan-features li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+.check-icon { color: var(--color-success); flex-shrink: 0; }
+
+.pp-plan-btn { width: 100%; }
+
+@media (max-width: 768px) {
+  .pp-benefits-grid { grid-template-columns: repeat(2, 1fr); }
+  .pp-active-details { grid-template-columns: repeat(2, 1fr); }
+  .pp-plans-grid { grid-template-columns: 1fr; }
+  .pp-hero h1 { font-size: var(--fs-2xl); }
+}
+
+@media (max-width: 480px) {
+  .pp-benefits-grid { grid-template-columns: 1fr; }
+}
