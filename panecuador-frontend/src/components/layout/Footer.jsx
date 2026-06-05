@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { FiInstagram, FiFacebook, FiMail, FiPhone, FiMapPin } from 'react-icons/fi';
+import logoImg from '../../assets/logo.png';
 import './Footer.css';
 
 export default function Footer() {
@@ -18,7 +19,7 @@ export default function Footer() {
             {/* Brand */}
             <div className="footer-brand">
               <div className="footer-logo">
-                <span className="logo-icon">🍞</span>
+                <img src={logoImg} className="logo-img-footer" alt="PanEcuador Logo" />
                 <span className="logo-name">PanEcuador</span>
               </div>
               <p className="footer-desc">
@@ -56,7 +57,7 @@ export default function Footer() {
               <h4 className="footer-title">Contacto</h4>
               <div className="footer-contact">
                 <FiMapPin size={16} />
-                <span>Quito, Ecuador</span>
+                <span>Baba, Los Ríos, Ecuador</span>
               </div>
               <div className="footer-contact">
                 <FiPhone size={16} />

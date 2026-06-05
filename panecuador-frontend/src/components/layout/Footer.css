@@ -44,8 +44,10 @@
   gap: var(--space-sm);
 }
 
-.footer-logo .logo-icon {
-  font-size: 1.8rem;
+.logo-img-footer {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
 }
 
 .footer-logo .logo-name {
