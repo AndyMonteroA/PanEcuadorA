@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { producerAPI } from '../../services/api';
-import { adminAPI } from '../../services/api';
+import { categoriesAPI } from '../../services/api';
 import { FiPlus, FiEdit2, FiRefreshCw, FiImage } from 'react-icons/fi';
 
 export default function ProducerProducts() {
@@ -17,8 +17,23 @@ export default function ProducerProducts() {
 
   const [workers, setWorkers] = useState([]);
   const [assignedWorker, setAssignedWorker] = useState('');
+  const [replenishments, setReplenishments] = useState([]);
 
-  useEffect(() => { loadProducts(); loadCategories(); loadWorkers(); }, []);
+  useEffect(() => { loadProducts(); loadCategories(); loadWorkers(); loadReplenishments(); }, []);
+
+  const loadReplenishments = async () => {
+    try { const res = await producerAPI.getReplenishments(); setReplenishments(res.data.data); }
+    catch (err) { console.error(err); }
+  };
+
+  const handleDeleteReplenishment = async (id) => {
+    if (!confirm('¿Cancelar esta orden de producción?')) return;
+    try {
+      await producerAPI.deleteReplenishment(id);
+      showAlert('✅ Orden de producción cancelada.', 'success');
+      loadReplenishments();
+    } catch (err) { showAlert(err.response?.data?.message || 'Error al cancelar orden', 'error'); }
+  };
 
   const loadWorkers = async () => {
     try { const res = await producerAPI.getWorkers(); setWorkers(res.data.data); }
@@ -33,7 +48,7 @@ export default function ProducerProducts() {
   };
 
   const loadCategories = async () => {
-    try { const res = await adminAPI.getCategories(); setCategories(res.data.data); }
+    try { const res = await categoriesAPI.getAll(); setCategories(res.data.data); }
     catch (err) { console.error(err); }
   };
 
@@ -57,7 +72,9 @@ export default function ProducerProducts() {
     e.preventDefault(); setSaving(true);
     try {
       const formData = new FormData();
-      Object.keys(form).forEach(k => { if (form[k] !== '' && form[k] != null) formData.append(k, form[k]); });
+      Object.keys(form).forEach(k => {
+        formData.append(k, (form[k] === '' || form[k] === null || form[k] === undefined) ? '' : form[k]);
+      });
       if (imageFile) formData.append('imagen', imageFile);
       if (modal.mode === 'create') { await producerAPI.createProduct(formData); showAlert('Producto creado', 'success'); }
       else { await producerAPI.updateProduct(modal.data.id_producto, formData); showAlert('Producto actualizado', 'success'); }
@@ -79,6 +96,7 @@ export default function ProducerProducts() {
       setRenewStock('');
       setAssignedWorker('');
       loadProducts();
+      loadReplenishments();
     } catch (err) { showAlert(err.response?.data?.message || 'Error al crear la tarea', 'error'); }
   };
 
@@ -136,6 +154,70 @@ export default function ProducerProducts() {
             </tbody>
           </table>
         )}
+      </div>
+
+      <div className="admin-section-header" style={{ marginTop: '40px' }}>
+        <h2>📋 Cola de Producción Interna (Reposición de Stock)</h2>
+      </div>
+
+      <div className="admin-table-wrapper" style={{ marginBottom: '40px' }}>
+        <div className="admin-table-header">
+          <h3>{replenishments.length} órdenes en cola</h3>
+        </div>
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Producto</th>
+              <th>Cantidad</th>
+              <th>Asignado A</th>
+              <th>Estado</th>
+              <th>Fecha Creación</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {replenishments.map(r => (
+              <tr key={r.id_tarea}>
+                <td>#{r.id_tarea}</td>
+                <td style={{ fontWeight: 600, color: '#fff' }}>{r.producto_nombre}</td>
+                <td>{r.cantidad} unidades</td>
+                <td>
+                  {r.trabajador_nombre 
+                    ? `👷 ${r.trabajador_nombre} ${r.trabajador_apellido}` 
+                    : <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>— Cualquier operario —</span>
+                  }
+                </td>
+                <td>
+                  <span className={`admin-badge badge-${r.estado}`}>
+                    {r.estado}
+                  </span>
+                </td>
+                <td style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                  {new Date(r.fecha_creacion).toLocaleString('es-EC')}
+                </td>
+                <td>
+                  {r.estado === 'pendiente' && (
+                    <button 
+                      className="btn-admin btn-admin-sm btn-admin-delete"
+                      onClick={() => handleDeleteReplenishment(r.id_tarea)}
+                      title="Cancelar producción"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {replenishments.length === 0 && (
+              <tr>
+                <td colSpan={7} className="admin-empty">
+                  No hay órdenes de producción planificadas hoy
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* Planificar Elaboración (Reposición de Stock) */}

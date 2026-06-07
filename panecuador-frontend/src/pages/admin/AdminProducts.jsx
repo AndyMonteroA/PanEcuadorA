@@ -70,7 +70,7 @@ export default function AdminProducts() {
     try {
       const formData = new FormData();
       Object.keys(form).forEach(key => {
-        if (form[key] !== '' && form[key] !== null && form[key] !== undefined) formData.append(key, form[key]);
+        formData.append(key, (form[key] === '' || form[key] === null || form[key] === undefined) ? '' : form[key]);
       });
       if (imageFile) formData.append('imagen', imageFile);
       if (modal.mode === 'create') {

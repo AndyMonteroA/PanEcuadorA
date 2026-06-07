@@ -96,6 +96,21 @@ export default function Navbar() {
                       <span>{user?.email}</span>
                     </div>
                     <div className="dropdown-divider" />
+                    {user?.rol === 'admin' && (
+                      <Link to="/admin" className="dropdown-item" style={{ color: 'var(--color-primary)', fontWeight: '600' }}>
+                        🛠️ Panel de Admin
+                      </Link>
+                    )}
+                    {user?.rol === 'productor' && (
+                      <Link to="/productor" className="dropdown-item" style={{ color: 'var(--color-primary)', fontWeight: '600' }}>
+                        🏪 Mi Negocio (Panel)
+                      </Link>
+                    )}
+                    {user?.rol === 'trabajador' && (
+                      <Link to="/trabajador" className="dropdown-item" style={{ color: 'var(--color-primary)', fontWeight: '600' }}>
+                        🍳 Cola de Cocina
+                      </Link>
+                    )}
                     <Link to="/perfil" className="dropdown-item">
                       <FiUser size={16} /> Mi Perfil
                     </Link>

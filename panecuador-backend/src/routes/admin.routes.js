@@ -285,32 +285,55 @@ router.put('/products/:id', upload.single('imagen'), async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Producto no encontrado.' });
     }
 
+    const prod = existing.rows[0];
+
+    const final_nombre = nombre !== undefined ? nombre : prod.nombre;
+    const final_precio = precio !== undefined ? parseFloat(precio) : parseFloat(prod.precio);
+    const final_stock = stock !== undefined ? parseInt(stock) : parseInt(prod.stock);
+    const final_disponible = disponible !== undefined ? (disponible === 'true' || disponible === true) : prod.disponible;
+    const final_tiempo = tiempo_elaboracion_min !== undefined ? parseInt(tiempo_elaboracion_min) : prod.tiempo_elaboracion_min;
+    const final_vida_util = vida_util_dias !== undefined ? parseInt(vida_util_dias) : prod.vida_util_dias;
+    const final_complejidad = complejidad !== undefined ? parseInt(complejidad) : prod.complejidad;
+    const final_num_ingredientes = num_ingredientes !== undefined ? parseInt(num_ingredientes) : prod.num_ingredientes;
+
+    // Campos nullables: si vienen vacíos en el body, se setean a NULL en BD. Si son undefined, mantienen el valor previo.
+    const final_descripcion = descripcion !== undefined ? (descripcion === '' ? null : descripcion) : prod.descripcion;
+    const final_ingredientes = ingredientes !== undefined ? (ingredientes === '' ? null : ingredientes) : prod.ingredientes;
+    const final_peso = peso_gramos !== undefined ? (peso_gramos === '' ? null : parseInt(peso_gramos)) : prod.peso_gramos;
+    const final_id_categoria = id_categoria !== undefined ? (id_categoria === '' ? null : parseInt(id_categoria)) : prod.id_categoria;
+    const final_id_productor = id_productor !== undefined ? (id_productor === '' ? null : parseInt(id_productor)) : prod.id_productor;
+
     const result = await pool.query(`
       UPDATE productos SET
-        nombre = COALESCE($1, nombre),
-        descripcion = COALESCE($2, descripcion),
-        ingredientes = COALESCE($3, ingredientes),
-        peso_gramos = COALESCE($4, peso_gramos),
-        precio = COALESCE($5, precio),
-        stock = COALESCE($6, stock),
-        id_categoria = COALESCE($7, id_categoria),
-        id_productor = COALESCE($8, id_productor),
-        disponible = COALESCE($9, disponible),
-        tiempo_elaboracion_min = COALESCE($10, tiempo_elaboracion_min),
-        vida_util_dias = COALESCE($11, vida_util_dias),
-        complejidad = COALESCE($12, complejidad),
-        num_ingredientes = COALESCE($13, num_ingredientes)
+        nombre = $1,
+        descripcion = $2,
+        ingredientes = $3,
+        peso_gramos = $4,
+        precio = $5,
+        stock = $6,
+        id_categoria = $7,
+        id_productor = $8,
+        disponible = $9,
+        tiempo_elaboracion_min = $10,
+        vida_util_dias = $11,
+        complejidad = $12,
+        num_ingredientes = $13
       WHERE id_producto = $14
       RETURNING *
     `, [
-      nombre || null, descripcion, ingredientes, peso_gramos ? parseInt(peso_gramos) : null,
-      precio ? parseFloat(precio) : null, stock !== undefined ? parseInt(stock) : null,
-      id_categoria || null, id_productor || null,
-      disponible !== undefined ? (disponible === 'true' || disponible === true) : null,
-      tiempo_elaboracion_min ? parseInt(tiempo_elaboracion_min) : null,
-      vida_util_dias ? parseInt(vida_util_dias) : null,
-      complejidad ? parseInt(complejidad) : null,
-      num_ingredientes ? parseInt(num_ingredientes) : null,
+      final_nombre,
+      final_descripcion,
+      final_ingredientes,
+      final_peso,
+      final_precio,
+      final_stock,
+      final_id_categoria,
+      final_id_productor,
+      final_disponible,
+      final_tiempo,
+      final_vida_util,
+      final_complejidad,
+      final_num_ingredientes,
       id
     ]);
 
