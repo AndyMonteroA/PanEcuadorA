@@ -33,5 +33,12 @@ INSERT INTO configuracion_sitio (clave, valor, descripcion, tipo) VALUES
   ('footer_texto',         '© 2026 PanEcuador. Hecho con ❤️ en Ecuador.', 'Texto del footer', 'texto')
 ON CONFLICT (clave) DO NOTHING;
 
--- 3. Dar permisos completos a admin_pan (incluye favoritos y nueva tabla)
+-- 3. Dar permisos completos a admin_pan (incluye favoritos, usuarios, y nueva tabla)
 GRANT ALL PRIVILEGES ON TABLE configuracion_sitio TO admin_pan;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO admin_pan;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO admin_pan;
+GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO admin_pan;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO admin_pan;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO admin_pan;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO admin_pan;
+
