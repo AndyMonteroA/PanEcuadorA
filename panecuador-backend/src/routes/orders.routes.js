@@ -148,6 +148,33 @@ router.post('/', authMiddleware, async (req, res, next) => {
 
     const total = Math.max(0, subtotal - descuento);
 
+    // Calcular fecha y franja horaria estimada (Estilo Amazon)
+    let finalFechaEntrega = fecha_entrega_programada;
+    let finalFranjaHoraria = franja_horaria;
+
+    if (!finalFechaEntrega) {
+      const now = new Date();
+      let diasAAgregar = 1;
+      
+      // Si el pedido se realiza después de las 18:00 (6:00 PM), se agrega 1 día más
+      if (now.getHours() >= 18) {
+        diasAAgregar += 1;
+      }
+      
+      // Si la preparación total supera las 5 horas (300 minutos), se agrega 1 día más
+      if (tiempoEstimadoTotal > 300) {
+        diasAAgregar += 1;
+      }
+      
+      const fechaCalculada = new Date();
+      fechaCalculada.setDate(now.getDate() + diasAAgregar);
+      finalFechaEntrega = fechaCalculada.toISOString().split('T')[0];
+    }
+
+    if (!finalFranjaHoraria) {
+      finalFranjaHoraria = '09:00 - 12:00'; // Franja por defecto por la mañana
+    }
+
     // 9. Crear el pedido
     const pedidoResult = await client.query(`
       INSERT INTO pedidos (id_usuario, id_direccion, id_metodo_pago, id_cupon,
@@ -159,7 +186,7 @@ router.post('/', authMiddleware, async (req, res, next) => {
     `, [userId, id_direccion, id_metodo_pago, idCupon,
         subtotal.toFixed(2), descuento.toFixed(2), total.toFixed(2),
         totalItems, tiempoEstimadoTotal,
-        fecha_entrega_programada || null, franja_horaria || null,
+        finalFechaEntrega, finalFranjaHoraria,
         notas_cliente || null]);
 
     const pedido = pedidoResult.rows[0];

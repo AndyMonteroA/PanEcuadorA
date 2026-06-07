@@ -16,7 +16,14 @@ export default function Checkout() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+
   const [success, setSuccess] = useState(null);
+  const [estimatedDelivery, setEstimatedDelivery] = useState({
+    dateStr: '',
+    formatted: '',
+    reason: ''
+  });
 
   const [form, setForm] = useState({
     id_direccion: '',
@@ -26,6 +33,51 @@ export default function Checkout() {
     franja_horaria: '',
     notas_cliente: ''
   });
+
+  useEffect(() => {
+    if (items.length > 0) {
+      const now = new Date();
+      const cutoffHour = 18; // 6:00 PM
+      const totalElabMin = resumen.tiempoElaboracionEstimado || 0;
+      
+      let daysToAdd = 1; // Por defecto: Mañana
+      let reason = '🥖 Pedido procesado a tiempo para la entrega del día siguiente.';
+      
+      if (now.getHours() >= cutoffHour) {
+        daysToAdd += 1;
+        reason = '🌙 Pedido realizado después de la hora límite (6:00 PM), programado para el día siguiente.';
+      }
+      
+      if (totalElabMin > 300) {
+        daysToAdd += 1;
+        reason = '⚠️ Contiene productos con alto tiempo de preparación, requiere 1 día adicional de elaboración artesanal.';
+      }
+      
+      const deliveryDate = new Date();
+      deliveryDate.setDate(now.getDate() + daysToAdd);
+      
+      const dateStr = deliveryDate.toISOString().split('T')[0];
+      const formatted = deliveryDate.toLocaleDateString('es-EC', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+      const formattedCapitalized = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+      
+      setForm(f => ({
+        ...f,
+        fecha_entrega_programada: f.fecha_entrega_programada || dateStr,
+        franja_horaria: f.franja_horaria || '09:00 - 12:00'
+      }));
+      
+      setEstimatedDelivery({
+        dateStr,
+        formatted: formattedCapitalized,
+        reason
+      });
+    }
+  }, [items, resumen.tiempoElaboracionEstimado]);
 
   // Nuevo dirección form
   const [showNewAddress, setShowNewAddress] = useState(false);
@@ -287,19 +339,33 @@ export default function Checkout() {
 
             {/* Delivery */}
             <div className="checkout-section card">
-              <h2><FiCalendar /> Entrega programada</h2>
-              <p className="section-hint">Programa la fecha y hora de entrega (pedido con anticipación)</p>
+              <h2><FiCalendar /> Entrega programada (Garantizada estilo Amazon)</h2>
+              
+              <div className="amazon-delivery-indicator">
+                <div className="indicator-header">
+                  <span className="amazon-badge">✓ Envío Garantizado</span>
+                  <h4>Fecha estimada de entrega</h4>
+                </div>
+                <p className="delivery-date-highlight">
+                  Llega el <strong>{estimatedDelivery.formatted || 'Cargando...'}</strong>
+                </p>
+                <p className="delivery-reason-hint">{estimatedDelivery.reason}</p>
+              </div>
+
+              <p className="section-hint" style={{ marginTop: '16px' }}>
+                Si deseas reprogramar para una fecha posterior, puedes cambiarla a continuación:
+              </p>
+
               <div className="inline-row">
                 <div className="input-group" style={{ flex: 1 }}>
-                  <label>Fecha de entrega</label>
+                  <label>Cambiar fecha de entrega</label>
                   <input type="date" className="input" min={minDate} value={form.fecha_entrega_programada}
                     onChange={e => setForm({ ...form, fecha_entrega_programada: e.target.value })} />
                 </div>
                 <div className="input-group" style={{ flex: 1 }}>
-                  <label>Franja horaria</label>
+                  <label>Franja horaria de entrega</label>
                   <select className="input" value={form.franja_horaria}
                     onChange={e => setForm({ ...form, franja_horaria: e.target.value })}>
-                    <option value="">Seleccionar</option>
                     <option value="06:00 - 09:00">🌅 06:00 - 09:00</option>
                     <option value="09:00 - 12:00">☀️ 09:00 - 12:00</option>
                     <option value="12:00 - 15:00">🌤 12:00 - 15:00</option>
