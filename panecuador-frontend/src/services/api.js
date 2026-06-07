@@ -220,6 +220,11 @@ export const producerAPI = {
   getShiftAssignments: (params) => api.get('/producer/shift-assignments', { params }),
   createShiftAssignment: (data) => api.post('/producer/shift-assignments', data),
   deleteShiftAssignment: (id) => api.delete(`/producer/shift-assignments/${id}`),
+
+  // Replenishments (Reposición de Stock)
+  getReplenishments: () => api.get('/producer/replenishments'),
+  createReplenishment: (data) => api.post('/producer/replenishments', data),
+  deleteReplenishment: (id) => api.delete(`/producer/replenishments/${id}`),
 };
 
 // ============================================================
@@ -228,7 +233,7 @@ export const producerAPI = {
 export const workerAPI = {
   getDashboard: () => api.get('/worker/dashboard'),
   getTasks: () => api.get('/worker/tasks'),
-  updateTaskStatus: (id_detalle, estado) => api.patch(`/worker/tasks/${id_detalle}/status`, { estado }),
+  updateTaskStatus: (id_detalle, estado, tipo) => api.patch(`/worker/tasks/${id_detalle}/status`, { estado, tipo }),
 };
 
 // ============================================================

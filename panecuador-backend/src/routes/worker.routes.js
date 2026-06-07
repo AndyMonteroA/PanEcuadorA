@@ -64,12 +64,12 @@ router.get('/tasks', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'No tienes un negocio vinculado.' });
     }
 
-    // Obtener los ítems de pedidos activos (pendiente, confirmado, preparando)
-    // que pertenecen al productor del trabajador
-    const result = await pool.query(`
+    // 1. Obtener los ítems de pedidos activos (cliente)
+    const ordersResult = await pool.query(`
       SELECT dp.id_detalle, dp.id_pedido, dp.cantidad, dp.estado,
              p.nombre AS producto_nombre, p.tiempo_elaboracion_min,
-             pe.fecha_pedido, pe.fecha_entrega_programada, pe.franja_horaria, pe.estado AS pedido_estado
+             pe.fecha_pedido, pe.fecha_entrega_programada, pe.franja_horaria, pe.estado AS pedido_estado,
+             'pedido' AS tipo
       FROM detalle_pedido dp
       JOIN productos p ON dp.id_producto = p.id_producto
       JOIN pedidos pe ON dp.id_pedido = pe.id_pedido
@@ -77,11 +77,25 @@ router.get('/tasks', async (req, res, next) => {
       ORDER BY pe.fecha_entrega_programada ASC, pe.fecha_pedido ASC
     `, [worker.id_productor]);
 
-    res.json({ success: true, data: result.rows });
+    // 2. Obtener las tareas de reposición internas activas
+    const replenishmentsResult = await pool.query(`
+      SELECT tp.id_tarea AS id_detalle, NULL AS id_pedido, tp.cantidad, tp.estado,
+             p.nombre AS producto_nombre, p.tiempo_elaboracion_min,
+             tp.fecha_creacion AS fecha_pedido, NULL AS fecha_entrega_programada, NULL AS franja_horaria, NULL AS pedido_estado,
+             'reposicion' AS tipo
+      FROM tareas_produccion tp
+      JOIN productos p ON tp.id_producto = p.id_producto
+      WHERE tp.id_productor = $1 AND tp.estado IN ('pendiente', 'preparando')
+      ORDER BY tp.fecha_creacion ASC
+    `, [worker.id_productor]);
+
+    const combinedTasks = [...ordersResult.rows, ...replenishmentsResult.rows];
+
+    res.json({ success: true, data: combinedTasks });
   } catch (error) { next(error); }
 });
 
-// Cambiar estado de preparación de un ítem
+// Cambiar estado de preparación de un ítem (pedido o reposición)
 router.patch('/tasks/:id_detalle/status', async (req, res, next) => {
   const client = await pool.connect();
   try {
@@ -90,14 +104,54 @@ router.patch('/tasks/:id_detalle/status', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'No tienes un negocio vinculado.' });
     }
 
-    const { estado } = req.body;
+    const { estado, tipo } = req.body;
     if (!estado || !['pendiente', 'preparando', 'completado'].includes(estado)) {
       return res.status(400).json({ success: false, message: 'Estado inválido.' });
     }
 
     const detailId = req.params.id_detalle;
 
-    // Verificar que el detalle pertenezca al mismo productor
+    if (tipo === 'reposicion') {
+      await client.query('BEGIN');
+      
+      const check = await client.query(`
+        SELECT tp.*, p.nombre
+        FROM tareas_produccion tp
+        JOIN productos p ON tp.id_producto = p.id_producto
+        WHERE tp.id_tarea = $1 AND tp.id_productor = $2
+      `, [detailId, worker.id_productor]);
+
+      if (check.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ success: false, message: 'No tienes permiso para actualizar esta tarea.' });
+      }
+
+      const task = check.rows[0];
+
+      // Actualizar estado de la tarea
+      await client.query(`
+        UPDATE tareas_produccion 
+        SET estado = $1, 
+            fecha_completado = CASE WHEN $1 = 'completado' THEN CURRENT_TIMESTAMP ELSE NULL END
+        WHERE id_tarea = $2
+      `, [estado, detailId]);
+
+      // Si pasa a completado y no lo estaba, incrementar el stock!
+      if (estado === 'completado' && task.estado !== 'completado') {
+        await client.query(`
+          UPDATE productos 
+          SET stock = stock + $1, 
+              fecha_elaboracion_stock = CURRENT_TIMESTAMP, 
+              fecha_vencimiento_stock = CURRENT_TIMESTAMP + (vida_util_dias || ' days')::INTERVAL 
+          WHERE id_producto = $2
+        `, [task.cantidad, task.id_producto]);
+      }
+
+      await client.query('COMMIT');
+      return res.json({ success: true, message: 'Tarea de reposición actualizada.', data: { id_detalle: detailId, estado } });
+    }
+
+    // Por defecto: tipo === 'pedido'
     const check = await client.query(`
       SELECT dp.*, p.id_productor, dp.id_pedido
       FROM detalle_pedido dp
@@ -142,7 +196,6 @@ router.patch('/tasks/:id_detalle/status', async (req, res, next) => {
       const prodNameResult = await client.query('SELECT nombre_negocio FROM productores WHERE id_productor = $1', [worker.id_productor]);
       const prodName = prodNameResult.rows[0]?.nombre_negocio || 'El productor';
       
-      // Notificación al productor o al sistema
       await client.query(`
         INSERT INTO notificaciones (id_usuario, tipo, mensaje)
         SELECT id_usuario, 'pedido', $2

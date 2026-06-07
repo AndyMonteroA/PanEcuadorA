@@ -22,12 +22,12 @@ export default function WorkerTasks() {
     }
   }
 
-  const handleStatusChange = async (idDetalle, newStatus) => {
+  const handleStatusChange = async (idDetalle, newStatus, tipo) => {
     setUpdating(prev => ({ ...prev, [idDetalle]: true }));
     try {
-      await workerAPI.updateTaskStatus(idDetalle, newStatus);
+      await workerAPI.updateTaskStatus(idDetalle, newStatus, tipo);
       setTasks(prevTasks =>
-        prevTasks.map(t => (t.id_detalle === idDetalle ? { ...t, estado: newStatus } : t))
+        prevTasks.map(t => (t.id_detalle === idDetalle && t.tipo === tipo ? { ...t, estado: newStatus } : t))
       );
     } catch (err) {
       console.error(err);
@@ -87,23 +87,33 @@ export default function WorkerTasks() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {pendingTasks.map(task => (
-              <div key={task.id_detalle} className="card" style={{ padding: '14px', background: 'var(--bg-secondary)', borderLeft: '4px solid #64748b' }}>
+              <div key={`${task.id_detalle}-${task.tipo}`} className="card" style={{ padding: '14px', background: 'var(--bg-secondary)', borderLeft: task.tipo === 'reposicion' ? '4px solid #3b82f6' : '4px solid #64748b' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                   <strong style={{ fontSize: '0.95rem' }}>{task.producto_nombre}</strong>
-                  {getUrgencyBadge(task.fecha_entrega_programada)}
+                  {task.tipo === 'reposicion' ? (
+                    <span className="admin-badge" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', fontSize: '0.7rem' }}>Reposición</span>
+                  ) : (
+                    getUrgencyBadge(task.fecha_entrega_programada)
+                  )}
                 </div>
                 
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>
                   <span>Cantidad: <strong style={{ color: 'var(--text-primary)' }}>{task.cantidad} unidades</strong></span>
                   <span>Tiempo estimado: <strong>{task.tiempo_elaboracion_min * task.cantidad} min</strong></span>
-                  <span>Pedido: <strong>#{task.id_pedido}</strong></span>
-                  {task.franja_horaria && <span>Entregar: <strong>{task.franja_horaria}</strong></span>}
+                  {task.tipo === 'reposicion' ? (
+                    <span>Destino: <strong style={{ color: '#3b82f6' }}>Stock General</strong></span>
+                  ) : (
+                    <>
+                      <span>Pedido: <strong>#{task.id_pedido}</strong></span>
+                      {task.franja_horaria && <span>Entregar: <strong>{task.franja_horaria}</strong></span>}
+                    </>
+                  )}
                 </div>
 
                 <button
                   className="btn btn-secondary btn-sm"
                   style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                  onClick={() => handleStatusChange(task.id_detalle, 'preparando')}
+                  onClick={() => handleStatusChange(task.id_detalle, 'preparando', task.tipo)}
                   disabled={updating[task.id_detalle]}
                 >
                   <FiPlay size={12} />
@@ -131,23 +141,33 @@ export default function WorkerTasks() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {preparingTasks.map(task => (
-              <div key={task.id_detalle} className="card" style={{ padding: '14px', background: 'var(--bg-secondary)', borderLeft: '4px solid #f59e0b' }}>
+              <div key={`${task.id_detalle}-${task.tipo}`} className="card" style={{ padding: '14px', background: 'var(--bg-secondary)', borderLeft: '4px solid #f59e0b' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                   <strong style={{ fontSize: '0.95rem' }}>{task.producto_nombre}</strong>
-                  {getUrgencyBadge(task.fecha_entrega_programada)}
+                  {task.tipo === 'reposicion' ? (
+                    <span className="admin-badge" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', fontSize: '0.7rem' }}>Reposición</span>
+                  ) : (
+                    getUrgencyBadge(task.fecha_entrega_programada)
+                  )}
                 </div>
 
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>
                   <span>Cantidad: <strong style={{ color: 'var(--text-primary)' }}>{task.cantidad} unidades</strong></span>
                   <span>Tiempo estimado: <strong>{task.tiempo_elaboracion_min * task.cantidad} min</strong></span>
-                  <span>Pedido: <strong>#{task.id_pedido}</strong></span>
-                  {task.franja_horaria && <span>Entregar: <strong>{task.franja_horaria}</strong></span>}
+                  {task.tipo === 'reposicion' ? (
+                    <span>Destino: <strong style={{ color: '#3b82f6' }}>Stock General</strong></span>
+                  ) : (
+                    <>
+                      <span>Pedido: <strong>#{task.id_pedido}</strong></span>
+                      {task.franja_horaria && <span>Entregar: <strong>{task.franja_horaria}</strong></span>}
+                    </>
+                  )}
                 </div>
 
                 <button
                   className="btn btn-primary btn-sm"
                   style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                  onClick={() => handleStatusChange(task.id_detalle, 'completado')}
+                  onClick={() => handleStatusChange(task.id_detalle, 'completado', task.tipo)}
                   disabled={updating[task.id_detalle]}
                 >
                   <FiCheckCircle size={12} />
@@ -175,16 +195,22 @@ export default function WorkerTasks() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {completedTasks.map(task => (
-              <div key={task.id_detalle} className="card" style={{ padding: '14px', background: 'var(--bg-secondary)', borderLeft: '4px solid #22c55e', opacity: 0.8 }}>
+              <div key={`${task.id_detalle}-${task.tipo}`} className="card" style={{ padding: '14px', background: 'var(--bg-secondary)', borderLeft: '4px solid #22c55e', opacity: 0.8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                   <strong style={{ fontSize: '0.95rem', color: '#94a3b8', textDecoration: 'line-through' }}>{task.producto_nombre}</strong>
-                  <span className="admin-badge badge-available" style={{ fontSize: '0.7rem' }}>Terminado</span>
+                  <span className="admin-badge badge-available" style={{ fontSize: '0.7rem' }}>{task.tipo === 'reposicion' ? 'Repuesto ✓' : 'Terminado'}</span>
                 </div>
 
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <span>Cantidad: <strong>{task.cantidad} unidades</strong></span>
-                  <span>Pedido: <strong>#{task.id_pedido}</strong></span>
-                  {task.franja_horaria && <span>Entregar: <strong>{task.franja_horaria}</strong></span>}
+                  {task.tipo === 'reposicion' ? (
+                    <span>Destino: <strong>Stock General</strong></span>
+                  ) : (
+                    <>
+                      <span>Pedido: <strong>#{task.id_pedido}</strong></span>
+                      {task.franja_horaria && <span>Entregar: <strong>{task.franja_horaria}</strong></span>}
+                    </>
+                  )}
                 </div>
               </div>
             ))}

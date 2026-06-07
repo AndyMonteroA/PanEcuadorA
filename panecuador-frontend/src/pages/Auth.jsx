@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FiMail, FiLock, FiUser, FiPhone, FiEye, FiEyeOff } from 'react-icons/fi';
+import logoImg from '../assets/logo.png';
 import './Auth.css';
 
 export function Login() {
@@ -40,7 +41,7 @@ export function Login() {
       <div className="auth-container">
         <div className="auth-visual">
           <div className="auth-visual-content">
-            <span className="auth-emoji">🍞</span>
+            <img src={logoImg} alt="PanEcuador Logo" className="auth-visual-logo" style={{ maxWidth: '180px', margin: '0 auto var(--space-lg)', display: 'block', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.3))' }} />
             <h2>Bienvenido de vuelta</h2>
             <p>Los mejores productos de panadería y pastelería ecuatoriana te esperan</p>
           </div>
@@ -48,8 +49,11 @@ export function Login() {
 
         <div className="auth-form-section">
           <div className="auth-form-wrapper">
-            <h1 className="auth-title">Iniciar Sesión</h1>
-            <p className="auth-subtitle">Ingresa a tu cuenta PanEcuador</p>
+            <div className="auth-form-logo-container" style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <img src={logoImg} alt="PanEcuador Logo" style={{ maxHeight: '60px', objectFit: 'contain' }} />
+            </div>
+            <h1 className="auth-title" style={{ textAlign: 'center' }}>Iniciar Sesión</h1>
+            <p className="auth-subtitle" style={{ textAlign: 'center' }}>Ingresa a tu cuenta PanEcuador</p>
 
             {error && <div className="auth-error">{error}</div>}
 
@@ -137,7 +141,7 @@ export function Register() {
       <div className="auth-container">
         <div className="auth-visual">
           <div className="auth-visual-content">
-            <span className="auth-emoji">🎂</span>
+            <img src={logoImg} alt="PanEcuador Logo" className="auth-visual-logo" style={{ maxWidth: '180px', margin: '0 auto var(--space-lg)', display: 'block', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.3))' }} />
             <h2>Únete a PanEcuador</h2>
             <p>Crea tu cuenta y empieza a disfrutar de productos artesanales ecuatorianos</p>
           </div>
@@ -145,8 +149,11 @@ export function Register() {
 
         <div className="auth-form-section">
           <div className="auth-form-wrapper">
-            <h1 className="auth-title">Crear Cuenta</h1>
-            <p className="auth-subtitle">Completa tus datos para registrarte</p>
+            <div className="auth-form-logo-container" style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <img src={logoImg} alt="PanEcuador Logo" style={{ maxHeight: '60px', objectFit: 'contain' }} />
+            </div>
+            <h1 className="auth-title" style={{ textAlign: 'center' }}>Crear Cuenta</h1>
+            <p className="auth-subtitle" style={{ textAlign: 'center' }}>Completa tus datos para registrarte</p>
 
             {error && <div className="auth-error">{error}</div>}
 

@@ -15,7 +15,15 @@ export default function ProducerProducts() {
   const [saving, setSaving] = useState(false);
   const [alert, setAlert] = useState(null);
 
-  useEffect(() => { loadProducts(); loadCategories(); }, []);
+  const [workers, setWorkers] = useState([]);
+  const [assignedWorker, setAssignedWorker] = useState('');
+
+  useEffect(() => { loadProducts(); loadCategories(); loadWorkers(); }, []);
+
+  const loadWorkers = async () => {
+    try { const res = await producerAPI.getWorkers(); setWorkers(res.data.data); }
+    catch (err) { console.error(err); }
+  };
 
   const loadProducts = async () => {
     setLoading(true);
@@ -58,13 +66,20 @@ export default function ProducerProducts() {
     finally { setSaving(false); }
   };
 
-  const handleRenewStock = async (e) => {
+  const handleCreateReplenishment = async (e) => {
     e.preventDefault();
     try {
-      const res = await producerAPI.renewStock(renewModal.product.id_producto, parseInt(renewStock));
-      showAlert(res.data.message, 'success');
-      setRenewModal({ open: false, product: null }); loadProducts();
-    } catch (err) { showAlert(err.response?.data?.message || 'Error', 'error'); }
+      await producerAPI.createReplenishment({
+        id_producto: renewModal.product.id_producto,
+        cantidad: parseInt(renewStock),
+        id_trabajador: assignedWorker || null
+      });
+      showAlert('✅ Tarea de reposición enviada a la cola de cocina.', 'success');
+      setRenewModal({ open: false, product: null });
+      setRenewStock('');
+      setAssignedWorker('');
+      loadProducts();
+    } catch (err) { showAlert(err.response?.data?.message || 'Error al crear la tarea', 'error'); }
   };
 
   const showAlert = (msg, type) => { setAlert({ message: msg, type }); setTimeout(() => setAlert(null), 4000); };
@@ -111,7 +126,7 @@ export default function ProducerProducts() {
                   <td><span className={`admin-badge ${p.disponible ? 'badge-available' : 'badge-unavailable'}`}>{p.disponible ? 'Disponible' : 'No disponible'}</span></td>
                   <td>
                     <div style={{display:'flex',gap:'6px'}}>
-                      <button className="btn-admin btn-admin-sm btn-admin-edit" onClick={() => { setRenewStock(p.stock || ''); setRenewModal({open:true,product:p}); }} title="Renovar stock"><FiRefreshCw size={14} /></button>
+                      <button className="btn-admin btn-admin-sm btn-admin-edit" onClick={() => { setRenewStock(''); setRenewModal({open:true,product:p}); }} title="Planificar elaboración (Reponer Stock)"><FiRefreshCw size={14} /></button>
                       <button className="btn-admin btn-admin-sm btn-admin-edit" onClick={() => openEdit(p)} title="Editar"><FiEdit2 size={14} /></button>
                     </div>
                   </td>
@@ -123,23 +138,35 @@ export default function ProducerProducts() {
         )}
       </div>
 
-      {/* Renovar Stock Modal */}
+      {/* Planificar Elaboración (Reposición de Stock) */}
       {renewModal.open && (
-        <div className="admin-modal-overlay" onClick={() => setRenewModal({open:false,product:null})}>
+        <div className="admin-modal-overlay" onClick={() => { setRenewModal({open:false,product:null}); setAssignedWorker(''); }}>
           <div className="admin-modal" onClick={e => e.stopPropagation()} style={{maxWidth:400}}>
-            <h2>🔄 Renovar Stock Fresco</h2>
+            <h2>🥣 Planificar Elaboración</h2>
             <p style={{color:'#a1a1aa',fontSize:'0.85rem',marginBottom:'16px'}}>
-              <strong style={{color:'#fff'}}>{renewModal.product?.nombre}</strong><br/>
-              Vida útil: <strong style={{color:'#c47f3b'}}>{renewModal.product?.vida_util_dias} días</strong>
+              Se enviará una orden de cocción/preparación de <strong style={{color:'#fff'}}>{renewModal.product?.nombre}</strong> a la cola de la cocina. El stock de la tienda aumentará automáticamente una vez que el operario complete la tarea.
             </p>
-            <form onSubmit={handleRenewStock}>
+            <form onSubmit={handleCreateReplenishment}>
               <div className="admin-form-group">
-                <label>Nuevo Stock *</label>
-                <input type="number" min="1" className="admin-input" value={renewStock} onChange={e => setRenewStock(e.target.value)} required />
+                <label>Cantidad a elaborar *</label>
+                <input type="number" min="1" className="admin-input" value={renewStock} onChange={e => setRenewStock(e.target.value)} placeholder="Ej: 20" required />
               </div>
+              
+              <div className="admin-form-group">
+                <label>Asignar a (opcional)</label>
+                <select className="admin-select" value={assignedWorker} onChange={e => setAssignedWorker(e.target.value)}>
+                  <option value="">— Cualquier operario disponible —</option>
+                  {workers.map(w => (
+                    <option key={w.id_trabajador} value={w.id_trabajador}>
+                      👷 {w.nombre} {w.apellido} ({w.especialidad})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="admin-modal-actions">
-                <button type="button" className="btn-admin btn-admin-ghost" onClick={() => setRenewModal({open:false,product:null})}>Cancelar</button>
-                <button type="submit" className="btn-admin btn-admin-primary">Renovar</button>
+                <button type="button" className="btn-admin btn-admin-ghost" onClick={() => { setRenewModal({open:false,product:null}); setAssignedWorker(''); }}>Cancelar</button>
+                <button type="submit" className="btn-admin btn-admin-primary">Crear Tarea</button>
               </div>
             </form>
           </div>

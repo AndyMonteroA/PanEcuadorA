@@ -492,4 +492,88 @@ router.delete('/shift-assignments/:id', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// ============================================================
+// FLUJO DE REPOSICIÓN DE STOCK (PRODUCER)
+// ============================================================
+
+// Obtener tareas de reposición
+router.get('/replenishments', async (req, res, next) => {
+  try {
+    const producerId = await getProducerId(req.user.id);
+    if (!producerId) return res.status(404).json({ success: false, message: 'No tienes un negocio vinculado.' });
+
+    const result = await pool.query(`
+      SELECT tp.*, p.nombre AS producto_nombre,
+             t.nombre AS trabajador_nombre, t.apellido AS trabajador_apellido
+      FROM tareas_produccion tp
+      JOIN productos p ON tp.id_producto = p.id_producto
+      LEFT JOIN trabajadores t ON tp.id_trabajador = t.id_trabajador
+      WHERE tp.id_productor = $1
+      ORDER BY tp.fecha_creacion DESC
+    `, [producerId]);
+
+    res.json({ success: true, data: result.rows });
+  } catch (error) { next(error); }
+});
+
+// Crear tarea de reposición
+router.post('/replenishments', async (req, res, next) => {
+  try {
+    const producerId = await getProducerId(req.user.id);
+    if (!producerId) return res.status(404).json({ success: false, message: 'No tienes un negocio vinculado.' });
+
+    const { id_producto, cantidad, id_trabajador } = req.body;
+    if (!id_producto || !cantidad) {
+      return res.status(400).json({ success: false, message: 'Producto y cantidad son obligatorios.' });
+    }
+
+    // Verificar que el producto pertenece al productor
+    const checkProd = await pool.query(
+      'SELECT id_producto FROM productos WHERE id_producto = $1 AND id_productor = $2',
+      [id_producto, producerId]
+    );
+    if (checkProd.rows.length === 0) {
+      return res.status(403).json({ success: false, message: 'El producto no pertenece a tu negocio.' });
+    }
+
+    // Verificar que el trabajador pertenece al productor
+    if (id_trabajador) {
+      const checkWork = await pool.query(
+        'SELECT id_trabajador FROM trabajadores WHERE id_trabajador = $1 AND id_productor = $2',
+        [id_trabajador, producerId]
+      );
+      if (checkWork.rows.length === 0) {
+        return res.status(403).json({ success: false, message: 'El trabajador no pertenece a tu negocio.' });
+      }
+    }
+
+    const result = await pool.query(`
+      INSERT INTO tareas_produccion (id_producto, id_productor, cantidad, id_trabajador)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `, [id_producto, producerId, parseInt(cantidad), id_trabajador || null]);
+
+    res.status(201).json({ success: true, message: 'Tarea de reposición creada.', data: result.rows[0] });
+  } catch (error) { next(error); }
+});
+
+// Cancelar/Eliminar tarea de reposición
+router.delete('/replenishments/:id', async (req, res, next) => {
+  try {
+    const producerId = await getProducerId(req.user.id);
+    if (!producerId) return res.status(404).json({ success: false, message: 'No tienes un negocio vinculado.' });
+
+    const check = await pool.query(
+      'SELECT id_tarea FROM tareas_produccion WHERE id_tarea = $1 AND id_productor = $2',
+      [req.params.id, producerId]
+    );
+    if (check.rows.length === 0) {
+      return res.status(403).json({ success: false, message: 'No tienes permiso sobre esta tarea.' });
+    }
+
+    await pool.query('DELETE FROM tareas_produccion WHERE id_tarea = $1', [req.params.id]);
+    res.json({ success: true, message: 'Tarea de reposición eliminada.' });
+  } catch (error) { next(error); }
+});
+
 module.exports = router;
