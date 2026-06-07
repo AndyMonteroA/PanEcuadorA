@@ -21,6 +21,8 @@ export function Login() {
       // Redirigir según el rol del usuario
       if (userData.rol === 'admin') {
         navigate('/admin');
+      } else if (userData.rol === 'productor') {
+        navigate('/productor');
       } else {
         navigate('/');
       }

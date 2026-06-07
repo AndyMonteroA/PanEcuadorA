@@ -25,6 +25,7 @@ const subscriptionsRoutes = require('./routes/subscriptions.routes');
 const reviewsRoutes = require('./routes/reviews.routes');
 const notificationsRoutes = require('./routes/notifications.routes');
 const adminRoutes = require('./routes/admin.routes');
+const producerRoutes = require('./routes/producer.routes');
 
 // Importar servicios (cron jobs)
 const { verificarStockVencido } = require('./services/stockRotation');
@@ -109,6 +110,7 @@ app.use('/api/subscriptions', subscriptionsRoutes);
 app.use('/api/reviews', reviewsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/producer', producerRoutes);
 
 // ============================================================
 // TAREAS PROGRAMADAS (CRON JOBS)

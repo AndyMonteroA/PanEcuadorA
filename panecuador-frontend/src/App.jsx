@@ -29,6 +29,13 @@ import AdminWorkers from './pages/admin/AdminWorkers';
 import AdminCoupons from './pages/admin/AdminCoupons';
 import AdminReturns from './pages/admin/AdminReturns';
 
+// Producer Pages
+import ProducerLayout from './pages/producer/ProducerLayout';
+import ProducerDashboard from './pages/producer/ProducerDashboard';
+import ProducerProducts from './pages/producer/ProducerProducts';
+import ProducerOrders from './pages/producer/ProducerOrders';
+import ProducerWorkers from './pages/producer/ProducerWorkers';
+
 import './App.css';
 
 // Componente para proteger rutas admin
@@ -37,6 +44,15 @@ function AdminRoute({ children }) {
   if (loading) return null;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (!isAdmin) return <Navigate to="/" replace />;
+  return children;
+}
+
+// Componente para proteger rutas productor
+function ProducerRoute({ children }) {
+  const { isProducer, isAuthenticated, loading } = useAuth();
+  if (loading) return null;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isProducer) return <Navigate to="/" replace />;
   return children;
 }
 
@@ -64,6 +80,21 @@ function App() {
               <Route path="cupones" element={<AdminCoupons />} />
               <Route path="devoluciones" element={<AdminReturns />} />
               <Route path="usuarios" element={<AdminUsers />} />
+            </Route>
+
+            {/* Rutas del Productor — sin Navbar/Footer */}
+            <Route
+              path="/productor"
+              element={
+                <ProducerRoute>
+                  <ProducerLayout />
+                </ProducerRoute>
+              }
+            >
+              <Route index element={<ProducerDashboard />} />
+              <Route path="productos" element={<ProducerProducts />} />
+              <Route path="pedidos" element={<ProducerOrders />} />
+              <Route path="trabajadores" element={<ProducerWorkers />} />
             </Route>
 
             {/* Rutas del cliente — con Navbar/Footer */}

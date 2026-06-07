@@ -71,4 +71,17 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
-module.exports = { authMiddleware, optionalAuth, adminOnly };
+/**
+ * Middleware de productor: verifica que sea productor o admin
+ */
+const producerOnly = (req, res, next) => {
+  if (!req.user || (req.user.rol !== 'productor' && req.user.rol !== 'admin')) {
+    return res.status(403).json({
+      success: false,
+      message: 'Acceso denegado. Se requieren permisos de productor.'
+    });
+  }
+  next();
+};
+
+module.exports = { authMiddleware, optionalAuth, adminOnly, producerOnly };

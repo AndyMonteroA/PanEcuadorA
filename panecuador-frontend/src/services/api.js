@@ -200,4 +200,22 @@ export const adminAPI = {
   getReturnsCount: () => api.get('/admin/returns-count'),
 };
 
+// ============================================================
+// PRODUCER (Panel Productor)
+// ============================================================
+
+export const producerAPI = {
+  getDashboard: () => api.get('/producer/dashboard'),
+  getProducts: () => api.get('/producer/products'),
+  createProduct: (formData) => api.post('/producer/products', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  updateProduct: (id, formData) => api.put(`/producer/products/${id}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  renewStock: (id, stock) => api.post(`/producer/products/${id}/renew-stock`, { stock }),
+  getOrders: () => api.get('/producer/orders'),
+  getWorkers: () => api.get('/producer/workers'),
+};
+
 export default api;
