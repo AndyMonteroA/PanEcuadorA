@@ -140,7 +140,7 @@ INSERT INTO usuarios (nombre, apellido, email, password_hash, telefono, rol) VAL
 
 -- 4. Vincular usuarios productores con la tabla productores
 -- Necesitamos agregar id_usuario a productores
-ALTER TABLE productores ADD COLUMN IF NOT EXISTS id_usuario INT REFERENCES usuarios(id_usuario);
+ALTER TABLE productores ADD COLUMN id_usuario INT REFERENCES usuarios(id_usuario);
 
 -- Vincular (asumiendo los IDs se crearon en orden)
 UPDATE productores SET id_usuario = (SELECT id_usuario FROM usuarios WHERE email = 'donpancho@panecuador.ec') WHERE nombre_negocio = 'Panadería Don Pancho';

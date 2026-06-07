@@ -3,10 +3,11 @@
 -- PanEcuador — Panel de Administración
 -- ============================================================
 
--- 1. Agregar columna 'rol' a la tabla usuarios
-ALTER TABLE usuarios
-ADD COLUMN IF NOT EXISTS rol VARCHAR(20) NOT NULL DEFAULT 'cliente'
-CHECK (rol IN ('cliente', 'admin'));
+-- 1. Agregar columna 'rol' a la tabla usuarios y su restricción
+ALTER TABLE usuarios ADD COLUMN rol VARCHAR(20) NOT NULL DEFAULT 'cliente';
+
+ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS check_rol;
+ALTER TABLE usuarios ADD CONSTRAINT check_rol CHECK (rol IN ('cliente', 'admin', 'productor'));
 
 -- 2. Crear usuario administrador por defecto
 -- Contraseña: Admin2026! (hash bcrypt)
@@ -16,8 +17,7 @@ VALUES (
   'Administrador',
   'PanEcuador',
   'admin@panecuador.online',
-  '$2a$10$8K1p/pXHXaox/3.x8Wy1xeM3Z0dF0E7bB8aI2x5D0bGdF.placeholder',
+  '$2a$10$opc3.VBbGeKK0upMt6jOcuNeLpxXaJ9F8eTfPo9nCkvPaZG8piF5O',
   '0999999999',
   'admin'
-)
-ON CONFLICT (email) DO UPDATE SET rol = 'admin';
+);
