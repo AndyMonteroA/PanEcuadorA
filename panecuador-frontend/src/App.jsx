@@ -24,6 +24,9 @@ import AdminProducts from './pages/admin/AdminProducts';
 import AdminOrders from './pages/admin/AdminOrders';
 import AdminCategories from './pages/admin/AdminCategories';
 import AdminUsers from './pages/admin/AdminUsers';
+import AdminProducers from './pages/admin/AdminProducers';
+import AdminWorkers from './pages/admin/AdminWorkers';
+import AdminCoupons from './pages/admin/AdminCoupons';
 
 import './App.css';
 
@@ -55,6 +58,9 @@ function App() {
               <Route path="productos" element={<AdminProducts />} />
               <Route path="pedidos" element={<AdminOrders />} />
               <Route path="categorias" element={<AdminCategories />} />
+              <Route path="productores" element={<AdminProducers />} />
+              <Route path="trabajadores" element={<AdminWorkers />} />
+              <Route path="cupones" element={<AdminCoupons />} />
               <Route path="usuarios" element={<AdminUsers />} />
             </Route>
 

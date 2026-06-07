@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { FiGrid, FiBox, FiShoppingBag, FiTag, FiUsers, FiLogOut, FiArrowLeft } from 'react-icons/fi';
+import { FiGrid, FiBox, FiShoppingBag, FiTag, FiUsers, FiLogOut, FiArrowLeft, FiTruck, FiClock, FiPercent } from 'react-icons/fi';
 import './Admin.css';
 
 export default function AdminLayout() {
@@ -32,6 +32,15 @@ export default function AdminLayout() {
           </NavLink>
           <NavLink to="/admin/categorias" className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}>
             <FiTag /> Categorías
+          </NavLink>
+          <NavLink to="/admin/productores" className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}>
+            <FiTruck /> Productores
+          </NavLink>
+          <NavLink to="/admin/trabajadores" className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}>
+            <FiClock /> Trabajadores
+          </NavLink>
+          <NavLink to="/admin/cupones" className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}>
+            <FiPercent /> Cupones
           </NavLink>
           <NavLink to="/admin/usuarios" className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}>
             <FiUsers /> Usuarios

@@ -630,7 +630,7 @@ router.get('/users', async (req, res, next) => {
 });
 
 // ============================================================
-// PRODUCTORES — Consulta
+// PRODUCTORES — CRUD
 // ============================================================
 
 router.get('/producers', async (req, res, next) => {
@@ -644,6 +644,264 @@ router.get('/producers', async (req, res, next) => {
       ORDER BY pr.nombre_negocio
     `);
     res.json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/producers', async (req, res, next) => {
+  try {
+    const { nombre_negocio, descripcion, ciudad, provincia, telefono, email } = req.body;
+    if (!nombre_negocio) {
+      return res.status(400).json({ success: false, message: 'El nombre del negocio es obligatorio.' });
+    }
+    const result = await pool.query(
+      `INSERT INTO productores (nombre_negocio, descripcion, ciudad, provincia, telefono, email)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [nombre_negocio, descripcion || null, ciudad || null, provincia || null, telefono || null, email || null]
+    );
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/producers/:id', async (req, res, next) => {
+  try {
+    const { nombre_negocio, descripcion, ciudad, provincia, telefono, email, activo } = req.body;
+    const result = await pool.query(
+      `UPDATE productores SET
+        nombre_negocio = COALESCE($1, nombre_negocio),
+        descripcion = COALESCE($2, descripcion),
+        ciudad = COALESCE($3, ciudad),
+        provincia = COALESCE($4, provincia),
+        telefono = COALESCE($5, telefono),
+        email = COALESCE($6, email),
+        activo = COALESCE($7, activo)
+       WHERE id_productor = $8 RETURNING *`,
+      [nombre_negocio || null, descripcion, ciudad, provincia, telefono, email,
+       activo !== undefined ? (activo === 'true' || activo === true) : null, req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Productor no encontrado.' });
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/producers/:id', async (req, res, next) => {
+  try {
+    const products = await pool.query('SELECT COUNT(*) FROM productos WHERE id_productor = $1', [req.params.id]);
+    if (parseInt(products.rows[0].count) > 0) {
+      return res.status(400).json({ success: false, message: 'No se puede eliminar: tiene productos asociados.' });
+    }
+    await pool.query('DELETE FROM productores WHERE id_productor = $1', [req.params.id]);
+    res.json({ success: true, message: 'Productor eliminado.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================================
+// TRABAJADORES — CRUD
+// ============================================================
+
+router.get('/workers', async (req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT t.*,
+             (SELECT json_build_object('nombre', tu.nombre, 'hora_inicio', tu.hora_inicio, 'hora_fin', tu.hora_fin)
+              FROM asignacion_turnos at2
+              JOIN turnos tu ON at2.id_turno = tu.id_turno
+              WHERE at2.id_trabajador = t.id_trabajador AND at2.fecha = CURRENT_DATE
+              LIMIT 1) AS turno_hoy
+      FROM trabajadores t
+      ORDER BY t.nombre
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/workers', async (req, res, next) => {
+  try {
+    const { nombre, apellido, cedula, especialidad, telefono } = req.body;
+    if (!nombre || !apellido || !cedula || !especialidad) {
+      return res.status(400).json({ success: false, message: 'Nombre, apellido, cédula y especialidad son obligatorios.' });
+    }
+    const result = await pool.query(
+      `INSERT INTO trabajadores (nombre, apellido, cedula, especialidad, telefono)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [nombre, apellido, cedula, especialidad, telefono || null]
+    );
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(400).json({ success: false, message: 'Ya existe un trabajador con esa cédula.' });
+    }
+    next(error);
+  }
+});
+
+router.put('/workers/:id', async (req, res, next) => {
+  try {
+    const { nombre, apellido, cedula, especialidad, telefono, activo } = req.body;
+    const result = await pool.query(
+      `UPDATE trabajadores SET
+        nombre = COALESCE($1, nombre),
+        apellido = COALESCE($2, apellido),
+        cedula = COALESCE($3, cedula),
+        especialidad = COALESCE($4, especialidad),
+        telefono = COALESCE($5, telefono),
+        activo = COALESCE($6, activo)
+       WHERE id_trabajador = $7 RETURNING *`,
+      [nombre || null, apellido || null, cedula || null, especialidad || null, telefono,
+       activo !== undefined ? (activo === 'true' || activo === true) : null, req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Trabajador no encontrado.' });
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/workers/:id', async (req, res, next) => {
+  try {
+    await pool.query('DELETE FROM asignacion_turnos WHERE id_trabajador = $1', [req.params.id]);
+    await pool.query('DELETE FROM trabajadores WHERE id_trabajador = $1', [req.params.id]);
+    res.json({ success: true, message: 'Trabajador eliminado.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================================
+// TURNOS — Gestión
+// ============================================================
+
+router.get('/shifts', async (req, res, next) => {
+  try {
+    const turnos = await pool.query('SELECT * FROM turnos ORDER BY hora_inicio');
+    res.json({ success: true, data: turnos.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/shift-assignments', async (req, res, next) => {
+  try {
+    const { fecha_inicio, fecha_fin } = req.query;
+    const start = fecha_inicio || new Date().toISOString().split('T')[0];
+    const end = fecha_fin || new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+
+    const result = await pool.query(`
+      SELECT at2.*, t.nombre, t.apellido, t.especialidad,
+             tu.nombre as turno_nombre, tu.hora_inicio, tu.hora_fin
+      FROM asignacion_turnos at2
+      JOIN trabajadores t ON at2.id_trabajador = t.id_trabajador
+      JOIN turnos tu ON at2.id_turno = tu.id_turno
+      WHERE at2.fecha BETWEEN $1 AND $2
+      ORDER BY at2.fecha, tu.hora_inicio
+    `, [start, end]);
+
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/shift-assignments', async (req, res, next) => {
+  try {
+    const { id_trabajador, id_turno, fecha } = req.body;
+    const result = await pool.query(
+      'INSERT INTO asignacion_turnos (id_trabajador, id_turno, fecha) VALUES ($1, $2, $3) RETURNING *',
+      [id_trabajador, id_turno, fecha]
+    );
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(400).json({ success: false, message: 'Este trabajador ya tiene turno asignado en esa fecha.' });
+    }
+    next(error);
+  }
+});
+
+router.delete('/shift-assignments/:id', async (req, res, next) => {
+  try {
+    await pool.query('DELETE FROM asignacion_turnos WHERE id_asignacion = $1', [req.params.id]);
+    res.json({ success: true, message: 'Asignación eliminada.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================================
+// CUPONES — CRUD
+// ============================================================
+
+router.get('/coupons', async (req, res, next) => {
+  try {
+    const result = await pool.query('SELECT * FROM cupones ORDER BY id_cupon DESC');
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/coupons', async (req, res, next) => {
+  try {
+    const { codigo, tipo_descuento, valor, fecha_vencimiento, usos_maximos } = req.body;
+    if (!codigo || !tipo_descuento || !valor) {
+      return res.status(400).json({ success: false, message: 'Código, tipo y valor son obligatorios.' });
+    }
+    const result = await pool.query(
+      `INSERT INTO cupones (codigo, tipo_descuento, valor, fecha_vencimiento, usos_maximos)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [codigo.toUpperCase(), tipo_descuento, parseFloat(valor), fecha_vencimiento || null, usos_maximos || null]
+    );
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(400).json({ success: false, message: 'Ya existe un cupón con ese código.' });
+    }
+    next(error);
+  }
+});
+
+router.put('/coupons/:id', async (req, res, next) => {
+  try {
+    const { codigo, tipo_descuento, valor, fecha_vencimiento, usos_maximos, activo } = req.body;
+    const result = await pool.query(
+      `UPDATE cupones SET
+        codigo = COALESCE($1, codigo),
+        tipo_descuento = COALESCE($2, tipo_descuento),
+        valor = COALESCE($3, valor),
+        fecha_vencimiento = COALESCE($4, fecha_vencimiento),
+        usos_maximos = COALESCE($5, usos_maximos),
+        activo = COALESCE($6, activo)
+       WHERE id_cupon = $7 RETURNING *`,
+      [codigo || null, tipo_descuento || null, valor ? parseFloat(valor) : null,
+       fecha_vencimiento, usos_maximos ? parseInt(usos_maximos) : null,
+       activo !== undefined ? (activo === 'true' || activo === true) : null, req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Cupón no encontrado.' });
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/coupons/:id', async (req, res, next) => {
+  try {
+    await pool.query('DELETE FROM cupones WHERE id_cupon = $1', [req.params.id]);
+    res.json({ success: true, message: 'Cupón eliminado.' });
   } catch (error) {
     next(error);
   }

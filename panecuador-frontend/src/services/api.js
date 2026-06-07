@@ -164,6 +164,28 @@ export const adminAPI = {
 
   // Producers
   getProducers: () => api.get('/admin/producers'),
+  createProducer: (data) => api.post('/admin/producers', data),
+  updateProducer: (id, data) => api.put(`/admin/producers/${id}`, data),
+  deleteProducer: (id) => api.delete(`/admin/producers/${id}`),
+
+  // Workers
+  getWorkers: () => api.get('/admin/workers'),
+  createWorker: (data) => api.post('/admin/workers', data),
+  updateWorker: (id, data) => api.put(`/admin/workers/${id}`, data),
+  deleteWorker: (id) => api.delete(`/admin/workers/${id}`),
+
+  // Shifts
+  getShifts: () => api.get('/admin/shifts'),
+  getShiftAssignments: (params) => api.get('/admin/shift-assignments', { params }),
+  createShiftAssignment: (data) => api.post('/admin/shift-assignments', data),
+  deleteShiftAssignment: (id) => api.delete(`/admin/shift-assignments/${id}`),
+
+  // Coupons
+  getCoupons: () => api.get('/admin/coupons'),
+  createCoupon: (data) => api.post('/admin/coupons', data),
+  updateCoupon: (id, data) => api.put(`/admin/coupons/${id}`, data),
+  deleteCoupon: (id) => api.delete(`/admin/coupons/${id}`),
 };
 
 export default api;
+
