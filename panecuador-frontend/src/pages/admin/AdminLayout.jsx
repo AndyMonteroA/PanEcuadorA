@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { FiGrid, FiBox, FiShoppingBag, FiTag, FiUsers, FiLogOut, FiArrowLeft, FiTruck, FiClock, FiPercent } from 'react-icons/fi';
+import { FiGrid, FiBox, FiShoppingBag, FiTag, FiUsers, FiLogOut, FiArrowLeft, FiTruck, FiClock, FiPercent, FiRotateCw } from 'react-icons/fi';
 import './Admin.css';
 
 export default function AdminLayout() {
@@ -41,6 +41,9 @@ export default function AdminLayout() {
           </NavLink>
           <NavLink to="/admin/cupones" className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}>
             <FiPercent /> Cupones
+          </NavLink>
+          <NavLink to="/admin/devoluciones" className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}>
+            <FiRotateCw /> Devoluciones
           </NavLink>
           <NavLink to="/admin/usuarios" className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}>
             <FiUsers /> Usuarios

@@ -27,6 +27,7 @@ import AdminUsers from './pages/admin/AdminUsers';
 import AdminProducers from './pages/admin/AdminProducers';
 import AdminWorkers from './pages/admin/AdminWorkers';
 import AdminCoupons from './pages/admin/AdminCoupons';
+import AdminReturns from './pages/admin/AdminReturns';
 
 import './App.css';
 
@@ -61,6 +62,7 @@ function App() {
               <Route path="productores" element={<AdminProducers />} />
               <Route path="trabajadores" element={<AdminWorkers />} />
               <Route path="cupones" element={<AdminCoupons />} />
+              <Route path="devoluciones" element={<AdminReturns />} />
               <Route path="usuarios" element={<AdminUsers />} />
             </Route>
 

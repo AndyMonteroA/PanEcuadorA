@@ -185,7 +185,19 @@ export const adminAPI = {
   createCoupon: (data) => api.post('/admin/coupons', data),
   updateCoupon: (id, data) => api.put(`/admin/coupons/${id}`, data),
   deleteCoupon: (id) => api.delete(`/admin/coupons/${id}`),
+
+  // Stock Renewal
+  renewStock: (id, stock) => api.post(`/admin/products/${id}/renew-stock`, { stock }),
+
+  // Returns
+  getReturns: (params) => api.get('/admin/returns', { params }),
+  updateReturnStatus: (id, estado) => api.put(`/admin/returns/${id}/status`, { estado }),
+
+  // Dashboard extras
+  getCurrentShift: () => api.get('/admin/current-shift'),
+  getExpiringProducts: () => api.get('/admin/expiring-products'),
+  generateShifts: () => api.post('/admin/generate-shifts'),
+  getReturnsCount: () => api.get('/admin/returns-count'),
 };
 
 export default api;
-

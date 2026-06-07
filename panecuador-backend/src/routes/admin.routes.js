@@ -5,6 +5,8 @@ const { authMiddleware, adminOnly } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { renovarStock } = require('../services/stockRotation');
+const { generarTurnosSemana, obtenerTurnoActual } = require('../services/shiftScheduler');
 
 // ============================================================
 // CONFIGURACIÓN DE MULTER (subida de imágenes)
@@ -712,12 +714,14 @@ router.get('/workers', async (req, res, next) => {
   try {
     const result = await pool.query(`
       SELECT t.*,
+             pr.nombre_negocio AS productor_nombre,
              (SELECT json_build_object('nombre', tu.nombre, 'hora_inicio', tu.hora_inicio, 'hora_fin', tu.hora_fin)
               FROM asignacion_turnos at2
               JOIN turnos tu ON at2.id_turno = tu.id_turno
               WHERE at2.id_trabajador = t.id_trabajador AND at2.fecha = CURRENT_DATE
               LIMIT 1) AS turno_hoy
       FROM trabajadores t
+      LEFT JOIN productores pr ON t.id_productor = pr.id_productor
       ORDER BY t.nombre
     `);
     res.json({ success: true, data: result.rows });
@@ -728,14 +732,14 @@ router.get('/workers', async (req, res, next) => {
 
 router.post('/workers', async (req, res, next) => {
   try {
-    const { nombre, apellido, cedula, especialidad, telefono } = req.body;
+    const { nombre, apellido, cedula, especialidad, telefono, id_productor } = req.body;
     if (!nombre || !apellido || !cedula || !especialidad) {
       return res.status(400).json({ success: false, message: 'Nombre, apellido, cédula y especialidad son obligatorios.' });
     }
     const result = await pool.query(
-      `INSERT INTO trabajadores (nombre, apellido, cedula, especialidad, telefono)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [nombre, apellido, cedula, especialidad, telefono || null]
+      `INSERT INTO trabajadores (nombre, apellido, cedula, especialidad, telefono, id_productor)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [nombre, apellido, cedula, especialidad, telefono || null, id_productor || null]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -748,7 +752,7 @@ router.post('/workers', async (req, res, next) => {
 
 router.put('/workers/:id', async (req, res, next) => {
   try {
-    const { nombre, apellido, cedula, especialidad, telefono, activo } = req.body;
+    const { nombre, apellido, cedula, especialidad, telefono, activo, id_productor } = req.body;
     const result = await pool.query(
       `UPDATE trabajadores SET
         nombre = COALESCE($1, nombre),
@@ -756,10 +760,12 @@ router.put('/workers/:id', async (req, res, next) => {
         cedula = COALESCE($3, cedula),
         especialidad = COALESCE($4, especialidad),
         telefono = COALESCE($5, telefono),
-        activo = COALESCE($6, activo)
-       WHERE id_trabajador = $7 RETURNING *`,
+        activo = COALESCE($6, activo),
+        id_productor = COALESCE($7, id_productor)
+       WHERE id_trabajador = $8 RETURNING *`,
       [nombre || null, apellido || null, cedula || null, especialidad || null, telefono,
-       activo !== undefined ? (activo === 'true' || activo === true) : null, req.params.id]
+       activo !== undefined ? (activo === 'true' || activo === true) : null,
+       id_productor || null, req.params.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Trabajador no encontrado.' });
@@ -902,6 +908,149 @@ router.delete('/coupons/:id', async (req, res, next) => {
   try {
     await pool.query('DELETE FROM cupones WHERE id_cupon = $1', [req.params.id]);
     res.json({ success: true, message: 'Cupón eliminado.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================================
+// STOCK — Renovar frescura
+// ============================================================
+
+router.post('/products/:id/renew-stock', async (req, res, next) => {
+  try {
+    const { stock } = req.body;
+    if (!stock || stock <= 0) {
+      return res.status(400).json({ success: false, message: 'Cantidad de stock debe ser mayor a 0.' });
+    }
+    const producto = await renovarStock(req.params.id, parseInt(stock));
+    if (!producto) {
+      return res.status(404).json({ success: false, message: 'Producto no encontrado.' });
+    }
+    res.json({
+      success: true,
+      message: `Stock renovado: ${producto.nombre} → ${stock} unidades. Vence: ${new Date(producto.fecha_vencimiento_stock).toLocaleDateString('es-EC')}`,
+      data: producto
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================================
+// DEVOLUCIONES — CRUD
+// ============================================================
+
+router.get('/returns', async (req, res, next) => {
+  try {
+    const { estado } = req.query;
+    let query = `
+      SELECT d.*, p.id_pedido, p.total, p.estado AS estado_pedido,
+             u.nombre, u.apellido, u.email,
+             p.fecha_pedido
+      FROM devoluciones d
+      JOIN pedidos p ON d.id_pedido = p.id_pedido
+      JOIN usuarios u ON d.id_usuario = u.id_usuario
+    `;
+    const params = [];
+    if (estado) {
+      query += ' WHERE d.estado = $1';
+      params.push(estado);
+    }
+    query += ' ORDER BY d.fecha_solicitud DESC';
+    const result = await pool.query(query, params);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/returns/:id/status', async (req, res, next) => {
+  try {
+    const { estado } = req.body;
+    const valid = ['solicitada', 'en_proceso', 'resuelta', 'rechazada'];
+    if (!valid.includes(estado)) {
+      return res.status(400).json({ success: false, message: `Estado inválido. Debe ser: ${valid.join(', ')}` });
+    }
+    const result = await pool.query(
+      `UPDATE devoluciones SET estado = $1, fecha_resolucion = ${estado === 'resuelta' || estado === 'rechazada' ? 'CURRENT_TIMESTAMP' : 'fecha_resolucion'}
+       WHERE id_devolucion = $2 RETURNING *`,
+      [estado, req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Devolución no encontrada.' });
+    }
+    // Notificar al usuario
+    const dev = result.rows[0];
+    const mensajes = {
+      en_proceso: `Tu solicitud de devolución #${dev.id_devolucion} está siendo revisada.`,
+      resuelta: `¡Tu devolución #${dev.id_devolucion} ha sido aprobada! Se procesará el reembolso.`,
+      rechazada: `Tu solicitud de devolución #${dev.id_devolucion} ha sido rechazada.`
+    };
+    if (mensajes[estado]) {
+      await pool.query(
+        "INSERT INTO notificaciones (id_usuario, tipo, mensaje) VALUES ($1, 'pedido', $2)",
+        [dev.id_usuario, mensajes[estado]]
+      );
+    }
+    res.json({ success: true, message: `Devolución actualizada a "${estado}".`, data: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================================
+// DASHBOARD — Endpoints adicionales
+// ============================================================
+
+// Turno actual en operación
+router.get('/current-shift', async (req, res, next) => {
+  try {
+    const turno = await obtenerTurnoActual();
+    res.json({ success: true, data: turno });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Productos próximos a vencer (< 1 día)
+router.get('/expiring-products', async (req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT id_producto, nombre, stock, vida_util_dias,
+             fecha_elaboracion_stock, fecha_vencimiento_stock,
+             EXTRACT(EPOCH FROM (fecha_vencimiento_stock - CURRENT_TIMESTAMP)) / 3600 AS horas_restantes
+      FROM productos
+      WHERE fecha_vencimiento_stock IS NOT NULL
+        AND fecha_vencimiento_stock > CURRENT_TIMESTAMP
+        AND EXTRACT(EPOCH FROM (fecha_vencimiento_stock - CURRENT_TIMESTAMP)) / 3600 < 24
+        AND disponible = TRUE
+        AND stock > 0
+      ORDER BY fecha_vencimiento_stock ASC
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Generar turnos de la semana
+router.post('/generate-shifts', async (req, res, next) => {
+  try {
+    await generarTurnosSemana();
+    res.json({ success: true, message: 'Turnos generados para los próximos 7 días.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Conteo de devoluciones pendientes
+router.get('/returns-count', async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      "SELECT COUNT(*) FROM devoluciones WHERE estado IN ('solicitada', 'en_proceso')"
+    );
+    res.json({ success: true, data: parseInt(result.rows[0].count) });
   } catch (error) {
     next(error);
   }

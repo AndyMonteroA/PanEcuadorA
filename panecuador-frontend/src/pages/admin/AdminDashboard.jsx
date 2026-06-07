@@ -1,24 +1,42 @@
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../../services/api';
-import { FiShoppingBag, FiDollarSign, FiUsers, FiBox, FiAlertTriangle } from 'react-icons/fi';
+import { FiShoppingBag, FiDollarSign, FiUsers, FiBox, FiAlertTriangle, FiClock, FiCalendar, FiRotateCw } from 'react-icons/fi';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
+  const [turno, setTurno] = useState(null);
+  const [expiring, setExpiring] = useState([]);
+  const [returnsCount, setReturnsCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [alert, setAlert] = useState(null);
 
-  useEffect(() => {
-    loadStats();
-  }, []);
+  useEffect(() => { loadAll(); }, []);
 
-  const loadStats = async () => {
+  const loadAll = async () => {
     try {
-      const res = await adminAPI.getStats();
-      setStats(res.data.data);
-    } catch (err) {
-      console.error('Error loading stats:', err);
-    } finally {
-      setLoading(false);
-    }
+      const [statsRes, turnoRes, expRes, retRes] = await Promise.all([
+        adminAPI.getStats(),
+        adminAPI.getCurrentShift().catch(() => ({ data: { data: null } })),
+        adminAPI.getExpiringProducts().catch(() => ({ data: { data: [] } })),
+        adminAPI.getReturnsCount().catch(() => ({ data: { data: 0 } }))
+      ]);
+      setStats(statsRes.data.data);
+      setTurno(turnoRes.data.data);
+      setExpiring(expRes.data.data);
+      setReturnsCount(retRes.data.data);
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  };
+
+  const handleGenerateShifts = async () => {
+    setGenerating(true);
+    try {
+      const res = await adminAPI.generateShifts();
+      setAlert({ message: res.data.message, type: 'success' });
+      setTimeout(() => setAlert(null), 4000);
+    } catch (err) { setAlert({ message: 'Error al generar turnos', type: 'error' }); setTimeout(() => setAlert(null), 4000); }
+    finally { setGenerating(false); }
   };
 
   if (loading) return <div className="admin-loading">Cargando estadísticas...</div>;
@@ -30,7 +48,12 @@ export default function AdminDashboard() {
     <div>
       <div className="admin-section-header">
         <h2>Dashboard</h2>
+        <button className="btn-admin btn-admin-ghost" onClick={handleGenerateShifts} disabled={generating}>
+          <FiCalendar /> {generating ? 'Generando...' : 'Generar Turnos Semana'}
+        </button>
       </div>
+
+      {alert && <div className={`admin-alert admin-alert-${alert.type}`}>{alert.message}</div>}
 
       {/* Stats Cards */}
       <div className="admin-stats-grid">
@@ -59,20 +82,65 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* Tarjetas operativas */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+        {/* Turno actual */}
+        <div className="admin-stat-card" style={{ borderLeft: '3px solid #a855f7' }}>
+          <span className="stat-label"><FiClock size={14} /> Turno Actual</span>
+          <span className="stat-value" style={{ fontSize: '1.3rem' }}>{turno?.turno || 'Sin turno'}</span>
+          <span className="stat-sub">
+            {turno?.totalTrabajadores > 0
+              ? `${turno.totalTrabajadores} trabajador(es) activo(s)`
+              : 'Sin trabajadores asignados'
+            }
+          </span>
+          {turno?.trabajadores?.length > 0 && (
+            <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {turno.trabajadores.map((t, i) => (
+                <span key={i} className="admin-badge badge-preparando" style={{ fontSize: '0.7rem' }}>
+                  {t.trabajador_nombre} {t.trabajador_apellido}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Productos por vencer */}
+        <div className="admin-stat-card" style={{ borderLeft: '3px solid #f97316' }}>
+          <span className="stat-label"><FiRotateCw size={14} /> Productos por Vencer (&lt;24h)</span>
+          <span className="stat-value" style={{ fontSize: '1.3rem', color: expiring.length > 0 ? '#f97316' : '#22c55e' }}>
+            {expiring.length}
+          </span>
+          {expiring.length > 0 ? (
+            <div style={{ marginTop: '4px' }}>
+              {expiring.slice(0, 3).map(p => (
+                <div key={p.id_producto} style={{ fontSize: '0.75rem', color: '#f97316', marginBottom: '2px' }}>
+                  ⚠️ {p.nombre} — {Math.round(parseFloat(p.horas_restantes))}h restantes
+                </div>
+              ))}
+            </div>
+          ) : <span className="stat-sub">Todo el stock está fresco ✓</span>}
+        </div>
+
+        {/* Devoluciones pendientes */}
+        <div className="admin-stat-card" style={{ borderLeft: `3px solid ${returnsCount > 0 ? '#ef4444' : '#22c55e'}` }}>
+          <span className="stat-label"><FiAlertTriangle size={14} /> Devoluciones Pendientes</span>
+          <span className="stat-value" style={{ fontSize: '1.3rem', color: returnsCount > 0 ? '#ef4444' : '#22c55e' }}>
+            {returnsCount}
+          </span>
+          <span className="stat-sub">
+            {returnsCount > 0 ? 'Requieren atención' : 'Sin devoluciones pendientes ✓'}
+          </span>
+        </div>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
         {/* Pedidos recientes */}
         <div className="admin-table-wrapper">
-          <div className="admin-table-header">
-            <h3>Pedidos Recientes</h3>
-          </div>
+          <div className="admin-table-header"><h3>Pedidos Recientes</h3></div>
           <table className="admin-table">
             <thead>
-              <tr>
-                <th>#</th>
-                <th>Cliente</th>
-                <th>Total</th>
-                <th>Estado</th>
-              </tr>
+              <tr><th>#</th><th>Cliente</th><th>Total</th><th>Estado</th></tr>
             </thead>
             <tbody>
               {pedidosRecientes.map(p => (
@@ -92,17 +160,10 @@ export default function AdminDashboard() {
 
         {/* Productos más vendidos */}
         <div className="admin-table-wrapper">
-          <div className="admin-table-header">
-            <h3>Productos Más Vendidos</h3>
-          </div>
+          <div className="admin-table-header"><h3>Productos Más Vendidos</h3></div>
           <table className="admin-table">
             <thead>
-              <tr>
-                <th>Producto</th>
-                <th>Precio</th>
-                <th>Vendidos</th>
-                <th>Stock</th>
-              </tr>
+              <tr><th>Producto</th><th>Precio</th><th>Vendidos</th><th>Stock</th></tr>
             </thead>
             <tbody>
               {topProductos.map(p => (
@@ -133,9 +194,7 @@ export default function AdminDashboard() {
       {/* Pedidos por estado */}
       {pedidosPorEstado.length > 0 && (
         <div className="admin-table-wrapper" style={{ marginTop: '24px' }}>
-          <div className="admin-table-header">
-            <h3>Pedidos por Estado</h3>
-          </div>
+          <div className="admin-table-header"><h3>Pedidos por Estado</h3></div>
           <div style={{ padding: '24px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
             {pedidosPorEstado.map(e => (
               <div key={e.estado} style={{

@@ -4,12 +4,13 @@ import { FiPlus, FiEdit2, FiTrash2, FiCalendar, FiClock } from 'react-icons/fi';
 
 export default function AdminWorkers() {
   const [workers, setWorkers] = useState([]);
+  const [producers, setProducers] = useState([]);
   const [shifts, setShifts] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState({ open: false, mode: 'create', data: null });
   const [shiftModal, setShiftModal] = useState(false);
-  const [form, setForm] = useState({ nombre: '', apellido: '', cedula: '', especialidad: 'panadero', telefono: '' });
+  const [form, setForm] = useState({ nombre: '', apellido: '', cedula: '', especialidad: 'panadero', telefono: '', id_productor: '' });
   const [shiftForm, setShiftForm] = useState({ id_trabajador: '', id_turno: '', fecha: '' });
   const [saving, setSaving] = useState(false);
   const [alert, setAlert] = useState(null);
@@ -19,12 +20,14 @@ export default function AdminWorkers() {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [wRes, sRes, aRes] = await Promise.all([
+      const [wRes, pRes, sRes, aRes] = await Promise.all([
         adminAPI.getWorkers(),
+        adminAPI.getProducers(),
         adminAPI.getShifts(),
         adminAPI.getShiftAssignments()
       ]);
       setWorkers(wRes.data.data);
+      setProducers(pRes.data.data);
       setShifts(sRes.data.data);
       setAssignments(aRes.data.data);
     } catch (err) { console.error(err); }
@@ -32,12 +35,16 @@ export default function AdminWorkers() {
   };
 
   const openCreate = () => {
-    setForm({ nombre: '', apellido: '', cedula: '', especialidad: 'panadero', telefono: '' });
+    setForm({ nombre: '', apellido: '', cedula: '', especialidad: 'panadero', telefono: '', id_productor: '' });
     setModal({ open: true, mode: 'create', data: null });
   };
 
   const openEdit = (w) => {
-    setForm({ nombre: w.nombre, apellido: w.apellido, cedula: w.cedula, especialidad: w.especialidad, telefono: w.telefono || '' });
+    setForm({
+      nombre: w.nombre, apellido: w.apellido, cedula: w.cedula,
+      especialidad: w.especialidad, telefono: w.telefono || '',
+      id_productor: w.id_productor || ''
+    });
     setModal({ open: true, mode: 'edit', data: w });
   };
 
@@ -110,6 +117,7 @@ export default function AdminWorkers() {
                 <th>Nombre</th>
                 <th>Cédula</th>
                 <th>Especialidad</th>
+                <th>Productor</th>
                 <th>Teléfono</th>
                 <th>Turno Hoy</th>
                 <th>Estado</th>
@@ -122,6 +130,11 @@ export default function AdminWorkers() {
                   <td style={{fontWeight:600,color:'#fff'}}>{w.nombre} {w.apellido}</td>
                   <td>{w.cedula}</td>
                   <td>{especialidadBadge(w.especialidad)}</td>
+                  <td>
+                    {w.productor_nombre ? (
+                      <span style={{fontSize:'0.8rem',color:'#c47f3b'}}>{w.productor_nombre}</span>
+                    ) : <span style={{color:'#52525b',fontSize:'0.78rem'}}>Sin asignar</span>}
+                  </td>
                   <td>{w.telefono || '—'}</td>
                   <td>
                     {w.turno_hoy ? (
@@ -143,7 +156,7 @@ export default function AdminWorkers() {
                   </td>
                 </tr>
               ))}
-              {workers.length === 0 && <tr><td colSpan={7} className="admin-empty">No hay trabajadores</td></tr>}
+              {workers.length === 0 && <tr><td colSpan={8} className="admin-empty">No hay trabajadores</td></tr>}
             </tbody>
           </table>
         )}
@@ -217,9 +230,18 @@ export default function AdminWorkers() {
                   </select>
                 </div>
               </div>
-              <div className="admin-form-group">
-                <label>Teléfono</label>
-                <input className="admin-input" value={form.telefono} onChange={e => setForm({...form, telefono: e.target.value})} />
+              <div className="admin-form-row">
+                <div className="admin-form-group">
+                  <label>Productor (Panadería)</label>
+                  <select className="admin-select" value={form.id_productor} onChange={e => setForm({...form, id_productor: e.target.value})}>
+                    <option value="">Sin asignar</option>
+                    {producers.map(p => <option key={p.id_productor} value={p.id_productor}>{p.nombre_negocio}</option>)}
+                  </select>
+                </div>
+                <div className="admin-form-group">
+                  <label>Teléfono</label>
+                  <input className="admin-input" value={form.telefono} onChange={e => setForm({...form, telefono: e.target.value})} />
+                </div>
               </div>
               <div className="admin-modal-actions">
                 <button type="button" className="btn-admin btn-admin-ghost" onClick={() => setModal({open:false,mode:'create',data:null})}>Cancelar</button>
