@@ -201,7 +201,43 @@
   display: flex;
   gap: var(--space-md);
   align-items: center;
+  flex-wrap: wrap;
 }
+
+/* Favorite button on detail page */
+.pd-fav-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  border: 2px solid #e5e7eb;
+  background: white;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.pd-fav-btn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: #fff5f5;
+}
+
+.pd-fav-btn.fav-active {
+  border-color: #ef4444;
+  background: #fff5f5;
+  color: #ef4444;
+}
+
+.pd-fav-btn .heart-filled {
+  fill: #ef4444;
+  color: #ef4444;
+}
+
 
 .quantity-selector {
   display: flex;

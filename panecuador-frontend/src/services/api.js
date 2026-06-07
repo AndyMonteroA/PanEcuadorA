@@ -218,4 +218,18 @@ export const producerAPI = {
   getWorkers: () => api.get('/producer/workers'),
 };
 
+// ============================================================
+// SITE CONFIG (Configuración del Sitio)
+// ============================================================
+
+export const siteConfigAPI = {
+  // Admin: obtener configuración completa con metadata
+  getAdmin: () => api.get('/admin/site-config'),
+  // Admin: actualizar configuración { clave: valor, ... }
+  update: (data) => api.put('/admin/site-config', data),
+  // Público: obtener valores para aplicar al cargar el sitio
+  getPublic: () => api.get('/site-config'),
+};
+
 export default api;
+

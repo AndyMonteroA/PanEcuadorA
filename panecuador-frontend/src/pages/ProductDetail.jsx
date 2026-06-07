@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { FiShoppingCart, FiHeart, FiClock, FiStar, FiMinus, FiPlus, FiChevronLeft, FiPackage, FiAlertCircle } from 'react-icons/fi';
-import { productsAPI } from '../services/api';
+import { productsAPI, reviewsAPI } from '../services/api';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import './ProductDetail.css';
@@ -14,6 +14,8 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [addedMsg, setAddedMsg] = useState('');
+  const [isFav, setIsFav] = useState(false);
+  const [favLoading, setFavLoading] = useState(false);
 
   useEffect(() => {
     async function fetch() {
@@ -38,6 +40,20 @@ export default function ProductDetail() {
       setTimeout(() => setAddedMsg(''), 3000);
     } catch (err) {
       setAddedMsg(typeof err === 'string' ? err : 'Error al agregar');
+    }
+  };
+
+  const handleToggleFav = async () => {
+    if (!isAuthenticated) { window.location.href = '/login'; return; }
+    if (favLoading) return;
+    setFavLoading(true);
+    try {
+      const res = await reviewsAPI.toggleFavorite(product.id_producto);
+      setIsFav(res.data.esFavorito);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setFavLoading(false);
     }
   };
 
@@ -181,6 +197,16 @@ export default function ProductDetail() {
 
             {/* Add to cart */}
             <div className="pd-actions">
+              <button
+                className={`pd-fav-btn ${isFav ? 'fav-active' : ''}`}
+                onClick={handleToggleFav}
+                disabled={favLoading}
+                title={isFav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+              >
+                <FiHeart size={20} className={isFav ? 'heart-filled' : ''} />
+                {isFav ? 'En favoritos' : 'Favorito'}
+              </button>
+
               <div className="quantity-selector">
                 <button onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1}>
                   <FiMinus />

@@ -205,3 +205,63 @@
   padding: 6px 14px;
   font-size: var(--fs-xs);
 }
+
+/* Favorite button active */
+.fav-btn.fav-active {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.fav-btn.fav-active:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.heart-filled {
+  fill: #ef4444;
+  color: #ef4444;
+}
+
+/* New badge */
+.badge-new {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+/* Low stock badge */
+.badge-stock-low {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: white;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-weight: 700;
+}
+
+/* Cart flash message */
+.cart-flash {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-primary);
+  color: white;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
+  animation: flashIn 0.3s ease;
+  pointer-events: none;
+}
+
+@keyframes flashIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+

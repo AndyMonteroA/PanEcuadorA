@@ -100,6 +100,18 @@ app.get('/api/categories', async (req, res, next) => {
   }
 });
 
+// Ruta pública de configuración del sitio
+app.get('/api/site-config', async (req, res, next) => {
+  try {
+    const result = await pool.query('SELECT clave, valor FROM configuracion_sitio');
+    const config = {};
+    result.rows.forEach(row => { config[row.clave] = row.valor; });
+    res.json({ success: true, data: config });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Rutas de módulos
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);

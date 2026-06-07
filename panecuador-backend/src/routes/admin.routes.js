@@ -1056,4 +1056,42 @@ router.get('/returns-count', async (req, res, next) => {
   }
 });
 
+// ============================================================
+// CONFIGURACIÓN DEL SITIO
+// ============================================================
+
+// GET /api/admin/site-config — obtener toda la configuración
+router.get('/site-config', async (req, res, next) => {
+  try {
+    const result = await pool.query('SELECT clave, valor, descripcion, tipo FROM configuracion_sitio ORDER BY clave');
+    // Convertir array a objeto clave:valor para fácil consumo
+    const config = {};
+    result.rows.forEach(row => { config[row.clave] = { valor: row.valor, descripcion: row.descripcion, tipo: row.tipo }; });
+    res.json({ success: true, data: config });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/admin/site-config — actualizar configuración
+router.put('/site-config', async (req, res, next) => {
+  try {
+    const updates = req.body; // { clave: valor, ... }
+    const keys = Object.keys(updates);
+    if (keys.length === 0) return res.status(400).json({ success: false, message: 'Sin datos para actualizar.' });
+
+    for (const clave of keys) {
+      await pool.query(
+        `INSERT INTO configuracion_sitio (clave, valor) VALUES ($1, $2)
+         ON CONFLICT (clave) DO UPDATE SET valor = $2`,
+        [clave, updates[clave]]
+      );
+    }
+    res.json({ success: true, message: 'Configuración actualizada correctamente.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
+

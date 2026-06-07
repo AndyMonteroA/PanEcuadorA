@@ -28,6 +28,8 @@ import AdminProducers from './pages/admin/AdminProducers';
 import AdminWorkers from './pages/admin/AdminWorkers';
 import AdminCoupons from './pages/admin/AdminCoupons';
 import AdminReturns from './pages/admin/AdminReturns';
+import AdminShifts from './pages/admin/AdminShifts';
+import AdminSiteConfig from './pages/admin/AdminSiteConfig';
 
 // Producer Pages
 import ProducerLayout from './pages/producer/ProducerLayout';
@@ -80,6 +82,8 @@ function App() {
               <Route path="cupones" element={<AdminCoupons />} />
               <Route path="devoluciones" element={<AdminReturns />} />
               <Route path="usuarios" element={<AdminUsers />} />
+              <Route path="turnos" element={<AdminShifts />} />
+              <Route path="configuracion" element={<AdminSiteConfig />} />
             </Route>
 
             {/* Rutas del Productor — sin Navbar/Footer */}
