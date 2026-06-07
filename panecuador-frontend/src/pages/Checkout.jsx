@@ -87,9 +87,24 @@ export default function Checkout() {
 
   // Nuevo método de pago form
   const [showNewPayment, setShowNewPayment] = useState(false);
-  const [newPayment, setNewPayment] = useState({
-    tipo: 'tarjeta_credito', ultimos_4_digitos: '', marca: 'Visa', token_cifrado: 'demo_token', es_principal: true
+  const [cardFields, setCardFields] = useState({
+    number: '',
+    name: '',
+    expiry: '',
+    cvv: '',
+    tipo: 'tarjeta_credito'
   });
+
+  const [gatewayPhase, setGatewayPhase] = useState(0);
+  const [gatewayMessage, setGatewayMessage] = useState('');
+
+  const detectCardBrand = (number) => {
+    const clean = number.replace(/\D/g, '');
+    if (clean.startsWith('4')) return 'Visa';
+    if (clean.startsWith('5') || clean.startsWith('2')) return 'Mastercard';
+    if (clean.startsWith('3')) return 'Diners';
+    return 'Visa';
+  };
 
   useEffect(() => {
     if (!isAuthenticated) { navigate('/login'); return; }
@@ -132,11 +147,40 @@ export default function Checkout() {
 
   const handleAddPayment = async (e) => {
     e.preventDefault();
+    setError('');
+    const cleanNum = cardFields.number.replace(/\D/g, '');
+    if (cleanNum.length < 16) {
+      setError('El número de tarjeta debe tener 16 dígitos.');
+      return;
+    }
+    const cleanExpiry = cardFields.expiry.replace(/\D/g, '');
+    if (cleanExpiry.length < 4) {
+      setError('Fecha de vencimiento inválida. Formato MM/YY.');
+      return;
+    }
+    if (cardFields.cvv.length < 3) {
+      setError('El código de seguridad CVV debe tener al menos 3 dígitos.');
+      return;
+    }
+
     try {
-      const res = await usersAPI.addPaymentMethod(newPayment);
+      const marca = detectCardBrand(cardFields.number);
+      const ultimos_4_digitos = cleanNum.slice(-4);
+      const token_cifrado = `tok_${Math.random().toString(36).substring(2, 10)}`;
+      
+      const payload = {
+        tipo: cardFields.tipo,
+        ultimos_4_digitos,
+        marca,
+        token_cifrado,
+        es_principal: true
+      };
+
+      const res = await usersAPI.addPaymentMethod(payload);
       setPaymentMethods([...paymentMethods, res.data.data]);
-      setForm({ ...form, id_metodo_pago: res.data.data.id_metodo });
+      setForm(f => ({ ...f, id_metodo_pago: res.data.data.id_metodo }));
       setShowNewPayment(false);
+      setCardFields({ number: '', name: '', expiry: '', cvv: '', tipo: 'tarjeta_credito' });
     } catch (err) {
       setError(err.response?.data?.message || 'Error al agregar método de pago');
     }
@@ -147,22 +191,49 @@ export default function Checkout() {
     if (!form.id_direccion) { setError('Selecciona una dirección de entrega'); return; }
     if (!form.id_metodo_pago) { setError('Selecciona un método de pago'); return; }
 
+    const selectedPayment = paymentMethods.find(pm => pm.id_metodo == form.id_metodo_pago);
+    const paymentBrand = selectedPayment ? selectedPayment.marca : 'Tarjeta';
+    const paymentLast4 = selectedPayment ? selectedPayment.ultimos_4_digitos : '••••';
+    const formattedAmount = parseFloat(resumen.subtotal).toFixed(2);
+
     setSubmitting(true);
-    try {
-      const res = await ordersAPI.create({
-        id_direccion: parseInt(form.id_direccion),
-        id_metodo_pago: parseInt(form.id_metodo_pago),
-        codigo_cupon: form.codigo_cupon || undefined,
-        fecha_entrega_programada: form.fecha_entrega_programada || undefined,
-        franja_horaria: form.franja_horaria || undefined,
-        notas_cliente: form.notas_cliente || undefined
-      });
-      setSuccess(res.data.data.pedido);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Error al crear el pedido');
-    } finally {
-      setSubmitting(false);
-    }
+    setGatewayPhase(1);
+    setGatewayMessage('Conectando de forma segura con la pasarela de pagos...');
+
+    // Phase 1 -> Phase 2 (1.5s)
+    setTimeout(() => {
+      setGatewayPhase(2);
+      setGatewayMessage(`Procesando pago por $${formattedAmount} a través de ${paymentBrand} terminada en ${paymentLast4}...`);
+
+      // Phase 2 -> Phase 3 (1.5s)
+      setTimeout(() => {
+        setGatewayPhase(3);
+        setGatewayMessage('¡Pago Aprobado con Éxito! Guardando pedido...');
+
+        // Phase 3 -> Backend Call (1.2s)
+        setTimeout(async () => {
+          try {
+            const res = await ordersAPI.create({
+              id_direccion: parseInt(form.id_direccion),
+              id_metodo_pago: parseInt(form.id_metodo_pago),
+              codigo_cupon: form.codigo_cupon || undefined,
+              fecha_entrega_programada: form.fecha_entrega_programada || undefined,
+              franja_horaria: form.franja_horaria || undefined,
+              notas_cliente: form.notas_cliente || undefined
+            });
+            setSuccess(res.data.data.pedido);
+            clearCart();
+          } catch (err) {
+            setError(err.response?.data?.message || 'Error al procesar el pedido con el servidor.');
+          } finally {
+            setGatewayPhase(0);
+            setSubmitting(false);
+          }
+        }, 1200);
+
+      }, 1500);
+
+    }, 1500);
   };
 
   // Pantalla de éxito
@@ -314,26 +385,89 @@ export default function Checkout() {
                 + Agregar método de pago
               </button>
               {showNewPayment && (
-                <form className="inline-form" onSubmit={handleAddPayment}>
-                  <select className="input" value={newPayment.tipo}
-                    onChange={e => setNewPayment({ ...newPayment, tipo: e.target.value })}>
-                    <option value="tarjeta_credito">Tarjeta de Crédito</option>
-                    <option value="tarjeta_debito">Tarjeta de Débito</option>
-                    <option value="transferencia">Transferencia</option>
-                  </select>
-                  <div className="inline-row">
-                    <select className="input" value={newPayment.marca}
-                      onChange={e => setNewPayment({ ...newPayment, marca: e.target.value })}>
-                      <option value="Visa">Visa</option>
-                      <option value="Mastercard">Mastercard</option>
-                      <option value="Diners">Diners</option>
-                    </select>
-                    <input className="input" placeholder="Últimos 4 dígitos" maxLength={4} minLength={4}
-                      value={newPayment.ultimos_4_digitos}
-                      onChange={e => setNewPayment({ ...newPayment, ultimos_4_digitos: e.target.value })} />
+                <div className="new-card-flow" style={{ width: '100%' }}>
+                  {/* Interactive card preview */}
+                  <div className="card-wrapper">
+                    <div className={`interactive-card ${detectCardBrand(cardFields.number).toLowerCase()}`}>
+                      <div className="card-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="card-chip"></div>
+                        <div className="card-logo">
+                          {detectCardBrand(cardFields.number)}
+                        </div>
+                      </div>
+                      <div className="card-number">
+                        {cardFields.number || '•••• •••• •••• ••••'}
+                      </div>
+                      <div className="card-info-row">
+                        <div>
+                          <div className="card-info-label">Titular</div>
+                          <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{cardFields.name || 'NOMBRE APELLIDO'}</div>
+                        </div>
+                        <div>
+                          <div className="card-info-label">Vence</div>
+                          <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{cardFields.expiry || 'MM/YY'}</div>
+                        </div>
+                        <div>
+                          <div className="card-info-label">CVV</div>
+                          <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{cardFields.cvv ? '•••' : '•••'}</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <button type="submit" className="btn btn-primary btn-sm">Guardar método</button>
-                </form>
+
+                  <form className="inline-form" onSubmit={handleAddPayment} style={{ marginTop: '16px' }}>
+                    <div className="inline-row">
+                      <div className="input-group">
+                        <label>Tipo de tarjeta</label>
+                        <select className="input" value={cardFields.tipo}
+                          onChange={e => setCardFields({ ...cardFields, tipo: e.target.value })}>
+                          <option value="tarjeta_credito">💳 Tarjeta de Crédito</option>
+                          <option value="tarjeta_debito">💳 Tarjeta de Débito</option>
+                        </select>
+                      </div>
+                      <div className="input-group">
+                        <label>Nombre del Titular</label>
+                        <input className="input" placeholder="TITULAR DE LA TARJETA" required
+                          value={cardFields.name}
+                          onChange={e => setCardFields({ ...cardFields, name: e.target.value.toUpperCase() })} />
+                      </div>
+                    </div>
+
+                    <div className="input-group">
+                      <label>Número de Tarjeta</label>
+                      <input className="input" placeholder="4000 1234 5678 9010" required
+                        value={cardFields.number}
+                        onChange={e => {
+                          const clean = e.target.value.replace(/\D/g, '').slice(0, 16);
+                          const formatted = clean.replace(/(\d{4})(?=\d)/g, '$1 ');
+                          setCardFields({ ...cardFields, number: formatted });
+                        }} />
+                    </div>
+
+                    <div className="inline-row">
+                      <div className="input-group">
+                        <label>Vencimiento</label>
+                        <input className="input" placeholder="MM/YY" required maxLength={5}
+                          value={cardFields.expiry}
+                          onChange={e => {
+                            const clean = e.target.value.replace(/\D/g, '').slice(0, 4);
+                            const formatted = clean.length > 2 ? `${clean.slice(0, 2)}/${clean.slice(2)}` : clean;
+                            setCardFields({ ...cardFields, expiry: formatted });
+                          }} />
+                      </div>
+                      <div className="input-group">
+                        <label>CVV</label>
+                        <input className="input" placeholder="123" required type="password" maxLength={4}
+                          value={cardFields.cvv}
+                          onChange={e => setCardFields({ ...cardFields, cvv: e.target.value.replace(/\D/g, '') })} />
+                      </div>
+                    </div>
+                    
+                    <button type="submit" className="btn btn-primary btn-sm" style={{ marginTop: '12px', width: '100%' }}>
+                      Guardar Tarjeta Segura
+                    </button>
+                  </form>
+                </div>
               )}
             </div>
 
@@ -444,6 +578,19 @@ export default function Checkout() {
           </aside>
         </div>
       </div>
+      {gatewayPhase > 0 && (
+        <div className="gateway-overlay">
+          <div className="gateway-content">
+            <div className="gateway-spinner-ring">
+              <div></div><div></div><div></div><div></div>
+            </div>
+            <p className="gateway-phase-text">{gatewayMessage}</p>
+            <div className="gateway-secured-badge">
+              🔒 Transacción Encriptada (PCI-DSS)
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

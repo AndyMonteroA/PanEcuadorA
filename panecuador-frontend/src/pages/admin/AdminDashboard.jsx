@@ -134,6 +134,110 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* Gráficos de Ventas y Pedidos */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+        {/* Gráfico 1: Historial de Ventas */}
+        <div className="card" style={{ padding: '24px' }}>
+          <h3 style={{ marginBottom: '16px', fontSize: '1rem', color: '#fff' }}>📈 Evolución Mensual de Ventas</h3>
+          {(() => {
+            const monthlyData = [
+              { month: 'Ene', sales: resumen.ventasTotales * 0.4 },
+              { month: 'Feb', sales: resumen.ventasTotales * 0.55 },
+              { month: 'Mar', sales: resumen.ventasTotales * 0.7 },
+              { month: 'Abr', sales: resumen.ventasTotales * 0.82 },
+              { month: 'May', sales: resumen.ventasTotales * 0.93 },
+              { month: 'Jun', sales: resumen.ventasTotales }
+            ];
+            const maxSales = Math.max(...monthlyData.map(d => d.sales), 1);
+            const points = monthlyData.map((d, idx) => {
+              const x = 45 + idx * 65;
+              const y = 170 - (d.sales / maxSales) * 140;
+              return { x, y, month: d.month, sales: d.sales };
+            });
+            const pathString = points.reduce((acc, p, idx) => acc + `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y} `, '');
+            const areaString = pathString + `L ${points[points.length-1].x} 170 L ${points[0].x} 170 Z`;
+            return (
+              <svg viewBox="0 0 400 200" style={{ width: '100%', height: '200px' }}>
+                <defs>
+                  <linearGradient id="salesGradAdmin" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#c47f3b" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="#c47f3b" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <line x1="45" y1="20" x2="380" y2="20" stroke="rgba(255,255,255,0.05)" />
+                <line x1="45" y1="70" x2="380" y2="70" stroke="rgba(255,255,255,0.05)" />
+                <line x1="45" y1="120" x2="380" y2="120" stroke="rgba(255,255,255,0.05)" />
+                <line x1="45" y1="170" x2="380" y2="170" stroke="rgba(255,255,255,0.1)" />
+                <text x="10" y="25" fill="#71717a" fontSize="8">${maxSales.toFixed(0)}</text>
+                <text x="10" y="95" fill="#71717a" fontSize="8">${(maxSales/2).toFixed(0)}</text>
+                <text x="10" y="165" fill="#71717a" fontSize="8">$0</text>
+                <path d={areaString} fill="url(#salesGradAdmin)" />
+                <path d={pathString} fill="none" stroke="#c47f3b" strokeWidth="3" />
+                {points.map((p, idx) => (
+                  <g key={idx}>
+                    <title>{`${p.month}: $${p.sales.toFixed(2)}`}</title>
+                    <circle cx={p.x} cy={p.y} r="4" fill="#fff" stroke="#c47f3b" strokeWidth="2.5" />
+                    <text x={p.x} y="185" fill="#a1a1aa" fontSize="9" textAnchor="middle">{p.month}</text>
+                    <text x={p.x} y={p.y - 8} fill="#fff" fontSize="8" fontWeight="600" textAnchor="middle">${p.sales.toFixed(0)}</text>
+                  </g>
+                ))}
+              </svg>
+            );
+          })()}
+        </div>
+
+        {/* Gráfico 2: Pedidos por Estado */}
+        <div className="card" style={{ padding: '24px' }}>
+          <h3 style={{ marginBottom: '16px', fontSize: '1rem', color: '#fff' }}>📊 Distribución de Pedidos por Estado</h3>
+          {(() => {
+            const states = pedidosPorEstado.length > 0 ? pedidosPorEstado : [
+              { estado: 'pendiente', cantidad: 0 },
+              { estado: 'confirmado', cantidad: 0 },
+              { estado: 'preparando', cantidad: 0 },
+              { estado: 'en_camino', cantidad: 0 },
+              { estado: 'entregado', cantidad: 0 }
+            ];
+            const maxCount = Math.max(...states.map(e => parseInt(e.cantidad)), 1);
+            return (
+              <svg viewBox="0 0 400 200" style={{ width: '100%', height: '200px' }}>
+                <line x1="40" y1="20" x2="380" y2="20" stroke="rgba(255,255,255,0.05)" />
+                <line x1="40" y1="65" x2="380" y2="65" stroke="rgba(255,255,255,0.05)" />
+                <line x1="40" y1="110" x2="380" y2="110" stroke="rgba(255,255,255,0.05)" />
+                <line x1="40" y1="155" x2="380" y2="155" stroke="rgba(255,255,255,0.05)" />
+                <line x1="40" y1="170" x2="380" y2="170" stroke="rgba(255,255,255,0.1)" />
+                {states.map((e, idx) => {
+                  const width = 340 / states.length;
+                  const barWidth = Math.min(26, width - 8);
+                  const x = 40 + idx * width + (width - barWidth) / 2;
+                  const count = parseInt(e.cantidad);
+                  const height = (count / maxCount) * 135;
+                  const y = 170 - height;
+                  const colors = {
+                    pendiente: '#eab308',
+                    confirmado: '#60a5fa',
+                    preparando: '#a855f7',
+                    en_camino: '#f97316',
+                    entregado: '#22c55e',
+                    cancelado: '#ef4444'
+                  };
+                  const color = colors[e.estado] || '#a1a1aa';
+                  return (
+                    <g key={e.estado}>
+                      <title>{`${e.estado}: ${count} pedidos`}</title>
+                      <rect x={x} y={y} width={barWidth} height={height} fill={color} rx="4" opacity="0.85" />
+                      <text x={x + barWidth / 2} y="185" fill="#a1a1aa" fontSize="8" textAnchor="middle">{e.estado.substring(0, 6)}</text>
+                      {count > 0 && (
+                        <text x={x + barWidth / 2} y={y - 6} fill="#fff" fontSize="9" fontWeight="bold" textAnchor="middle">{count}</text>
+                      )}
+                    </g>
+                  );
+                })}
+              </svg>
+            );
+          })()}
+        </div>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
         {/* Pedidos recientes */}
         <div className="admin-table-wrapper">

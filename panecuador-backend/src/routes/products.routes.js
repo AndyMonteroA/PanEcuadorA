@@ -181,6 +181,121 @@ router.get('/featured', async (req, res, next) => {
 });
 
 /**
+ * GET /api/products/search-suggestions
+ * Sugerencias de búsqueda rápidas para autocompletado
+ */
+router.get('/search-suggestions', async (req, res, next) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.trim() === '') {
+      return res.json({ success: true, data: { products: [], categories: [] } });
+    }
+
+    const searchTerm = `%${q.trim()}%`;
+
+    // Buscar hasta 5 productos coincidentes
+    const productsResult = await pool.query(`
+      SELECT p.id_producto, p.nombre, p.precio, p.disponible,
+             (SELECT url_archivo FROM galeria_producto gp
+              WHERE gp.id_producto = p.id_producto AND gp.tipo = 'foto'
+              ORDER BY gp.orden LIMIT 1) AS imagen_principal
+      FROM productos p
+      WHERE p.nombre ILIKE $1 AND p.disponible = TRUE
+      LIMIT 5
+    `, [searchTerm]);
+
+    // Buscar hasta 3 categorías coincidentes
+    const categoriesResult = await pool.query(`
+      SELECT id_categoria, nombre FROM categorias
+      WHERE nombre ILIKE $1
+      LIMIT 3
+    `, [searchTerm]);
+
+    res.json({
+      success: true,
+      data: {
+        products: productsResult.rows,
+        categories: categoriesResult.rows
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/products/recommendations
+ * Obtener productos recomendados basados en el historial de búsqueda del usuario
+ */
+router.get('/recommendations', optionalAuth, async (req, res, next) => {
+  try {
+    let result;
+    if (req.user) {
+      // Obtener los últimos 3 términos buscados por el usuario
+      const history = await pool.query(`
+        SELECT termino FROM historial_busqueda
+        WHERE id_usuario = $1
+        ORDER BY fecha DESC
+        LIMIT 3
+      `, [req.user.id]);
+
+      if (history.rows.length > 0) {
+        const terms = history.rows.map(h => `%${h.termino}%`);
+        
+        let query = `
+          SELECT p.*,
+                 c.nombre AS categoria_nombre,
+                 pr.nombre_negocio AS productor_nombre,
+                 (SELECT url_archivo FROM galeria_producto gp
+                  WHERE gp.id_producto = p.id_producto AND gp.tipo = 'foto'
+                  ORDER BY gp.orden LIMIT 1) AS imagen_principal
+          FROM productos p
+          LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+          LEFT JOIN productores pr ON p.id_productor = pr.id_productor
+          WHERE p.disponible = TRUE AND (
+        `;
+        
+        const clauses = [];
+        const params = [];
+        terms.forEach((term, idx) => {
+          clauses.push(`p.nombre ILIKE $${idx + 1} OR p.descripcion ILIKE $${idx + 1}`);
+          params.push(term);
+        });
+        
+        query += clauses.join(' OR ') + `)
+          GROUP BY p.id_producto, c.nombre, pr.nombre_negocio
+          LIMIT 8`;
+          
+        result = await pool.query(query, params);
+      }
+    }
+
+    // Fallback: productos al azar si no hay historial o usuario
+    if (!result || result.rows.length === 0) {
+      result = await pool.query(`
+        SELECT p.*,
+               c.nombre AS categoria_nombre,
+               pr.nombre_negocio AS productor_nombre,
+               (SELECT url_archivo FROM galeria_producto gp
+                WHERE gp.id_producto = p.id_producto AND gp.tipo = 'foto'
+                ORDER BY gp.orden LIMIT 1) AS imagen_principal
+        FROM productos p
+        LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+        LEFT JOIN productores pr ON p.id_productor = pr.id_productor
+        WHERE p.disponible = TRUE AND p.stock > 0
+        GROUP BY p.id_producto, c.nombre, pr.nombre_negocio
+        ORDER BY RANDOM()
+        LIMIT 8
+      `);
+    }
+
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/products/:id
  * Detalle de un producto
  */

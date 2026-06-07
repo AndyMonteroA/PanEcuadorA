@@ -7,18 +7,24 @@ import './Home.css';
 
 export default function Home() {
   const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [recommendedProducts, setRecommendedProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [prodRes, catRes] = await Promise.all([
+        const [prodRes, catRes, recRes] = await Promise.all([
           productsAPI.getFeatured(),
-          categoriesAPI.getAll()
+          categoriesAPI.getAll(),
+          productsAPI.getRecommendations().catch(err => {
+            console.error('Error cargando recomendaciones:', err);
+            return { data: { data: [] } };
+          })
         ]);
         setFeaturedProducts(prodRes.data.data);
         setCategories(catRes.data.data);
+        setRecommendedProducts(recRes.data.data);
       } catch (err) {
         console.error('Error cargando datos:', err);
       } finally {
@@ -127,6 +133,22 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* ============ RECOMMENDED PRODUCTS ============ */}
+      {recommendedProducts.length > 0 && (
+        <section className="recommended-section section" style={{ background: 'var(--bg-secondary)', padding: '40px 0' }}>
+          <div className="container">
+            <div className="section-header" style={{ marginBottom: '24px' }}>
+              <h2 className="section-title">Inspirado en tus búsquedas recientes 🥐</h2>
+            </div>
+            <div className="products-grid">
+              {recommendedProducts.map((product) => (
+                <ProductCard key={product.id_producto} product={product} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ============ FEATURED PRODUCTS ============ */}
       <section className="featured-section section">

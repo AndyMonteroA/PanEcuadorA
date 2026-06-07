@@ -5,6 +5,7 @@ import { useCart } from '../../context/CartContext';
 import { FiShoppingCart, FiUser, FiSearch, FiMenu, FiX, FiBell, FiHeart, FiPackage, FiLogOut } from 'react-icons/fi';
 import logoImg from '../../assets/logo.png';
 import { FaBreadSlice, FaBirthdayCake, FaCookie, FaIceCream, FaSeedling, FaGift, FaStar } from 'react-icons/fa';
+import { productsAPI } from '../../services/api';
 import './Navbar.css';
 
 export default function Navbar() {
@@ -15,6 +16,28 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+
+  const [suggestions, setSuggestions] = useState({ products: [], categories: [] });
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  useEffect(() => {
+    const delayDebounce = setTimeout(async () => {
+      if (searchTerm.trim().length >= 2) {
+        try {
+          const res = await productsAPI.getSuggestions(searchTerm.trim());
+          setSuggestions(res.data.data);
+          setShowSuggestions(true);
+        } catch (err) {
+          console.error(err);
+        }
+      } else {
+        setSuggestions({ products: [], categories: [] });
+        setShowSuggestions(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounce);
+  }, [searchTerm]);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -49,7 +72,12 @@ export default function Navbar() {
         </Link>
 
         {/* Barra de búsqueda */}
-        <form className="navbar-search" onSubmit={handleSearch}>
+        <form 
+          className="navbar-search" 
+          onSubmit={handleSearch}
+          onFocus={() => setShowSuggestions(true)}
+          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+        >
           <FiSearch className="search-icon" />
           <input
             type="text"
@@ -57,8 +85,42 @@ export default function Navbar() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
+            autoComplete="off"
           />
           <button type="submit" className="search-btn">Buscar</button>
+
+          {showSuggestions && (suggestions.products.length > 0 || suggestions.categories.length > 0) && (
+            <div className="search-suggestions-dropdown">
+              {suggestions.categories.length > 0 && (
+                <div className="suggestions-section">
+                  <span className="suggestions-section-title">Categorías</span>
+                  {suggestions.categories.map(cat => (
+                    <Link key={cat.id_categoria} to={`/catalogo?categoria=${cat.id_categoria}`} className="suggestion-item category-suggestion">
+                      📁 {cat.nombre}
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {suggestions.products.length > 0 && (
+                <div className="suggestions-section">
+                  <span className="suggestions-section-title">Productos</span>
+                  {suggestions.products.map(prod => (
+                    <Link key={prod.id_producto} to={`/producto/${prod.id_producto}`} className="suggestion-item product-suggestion">
+                      {prod.imagen_principal ? (
+                        <img src={prod.imagen_principal} alt="" className="suggestion-prod-img" />
+                      ) : (
+                        <span className="suggestion-prod-emoji">🍞</span>
+                      )}
+                      <div className="suggestion-prod-info">
+                        <span className="suggestion-prod-name">{prod.nombre}</span>
+                        <span className="suggestion-prod-price">${parseFloat(prod.precio).toFixed(2)}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </form>
 
         {/* Acciones */}

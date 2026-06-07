@@ -294,10 +294,12 @@ router.get('/:id', authMiddleware, async (req, res, next) => {
     const pedidoResult = await pool.query(`
       SELECT p.*,
              d.alias AS direccion_alias, d.calle, d.ciudad, d.provincia, d.referencia,
-             mp.tipo AS metodo_tipo, mp.ultimos_4_digitos, mp.marca
+             mp.tipo AS metodo_tipo, mp.ultimos_4_digitos, mp.marca,
+             dev.id_devolucion, dev.estado AS devolucion_estado, dev.motivo AS devolucion_motivo, dev.fecha_solicitud AS devolucion_fecha_solicitud
       FROM pedidos p
       LEFT JOIN direcciones d ON p.id_direccion = d.id_direccion
       LEFT JOIN metodos_pago mp ON p.id_metodo_pago = mp.id_metodo
+      LEFT JOIN devoluciones dev ON p.id_pedido = dev.id_pedido
       WHERE p.id_pedido = $1 AND p.id_usuario = $2
     `, [req.params.id, req.user.id]);
 

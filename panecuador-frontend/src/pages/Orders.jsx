@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiPackage, FiClock, FiMapPin, FiChevronRight, FiX, FiRefreshCw } from 'react-icons/fi';
-import { ordersAPI } from '../services/api';
+import { ordersAPI, reviewsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import './Orders.css';
 
@@ -22,6 +22,21 @@ export default function Orders() {
   const [filter, setFilter] = useState('');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  const [showReturnForm, setShowReturnForm] = useState(false);
+  const [returnMotivo, setReturnMotivo] = useState('');
+  const [returnComentarios, setReturnComentarios] = useState('');
+  const [submittingReturn, setSubmittingReturn] = useState(false);
+  const [returnError, setReturnError] = useState('');
+  const [returnSuccess, setReturnSuccess] = useState(false);
+
+  useEffect(() => {
+    setShowReturnForm(false);
+    setReturnMotivo('');
+    setReturnComentarios('');
+    setReturnError('');
+    setReturnSuccess(false);
+  }, [selectedOrder?.id_pedido]);
 
   useEffect(() => {
     if (!isAuthenticated) { navigate('/login'); return; }
@@ -64,6 +79,30 @@ export default function Orders() {
       alert(err.response?.data?.message || 'Error al cancelar');
     }
   }
+
+  const handleReturnSubmit = async (e) => {
+    e.preventDefault();
+    if (!returnMotivo) { setReturnError('Selecciona un motivo principal'); return; }
+    if (!returnComentarios.trim()) { setReturnError('Por favor escribe tus comentarios'); return; }
+
+    setSubmittingReturn(true);
+    setReturnError('');
+    try {
+      const motivoCompleto = `${returnMotivo}: ${returnComentarios.trim()}`;
+      await reviewsAPI.createReturn({
+        id_pedido: selectedOrder.id_pedido,
+        motivo: motivoCompleto
+      });
+      setReturnSuccess(true);
+      setShowReturnForm(false);
+      viewDetail(selectedOrder.id_pedido);
+      fetchOrders();
+    } catch (err) {
+      setReturnError(err.response?.data?.message || 'Error al enviar la solicitud de devolución.');
+    } finally {
+      setSubmittingReturn(false);
+    }
+  };
 
   const formatDate = (d) => new Date(d).toLocaleDateString('es-EC', {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -224,6 +263,85 @@ export default function Orders() {
                       onClick={() => cancelOrder(selectedOrder.id_pedido)}>
                       <FiX /> Cancelar pedido
                     </button>
+                  )}
+
+                  {selectedOrder.id_devolucion && (
+                    <div style={{
+                      marginTop: '16px', padding: '14px', borderRadius: '8px',
+                      background: 'rgba(255,255,255,0.03)', borderLeft: '4px solid var(--color-primary)'
+                    }}>
+                      <h4 style={{ fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '6px' }}>
+                        Solicitud de Devolución
+                      </h4>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                        Motivo: <strong>{selectedOrder.devolucion_motivo}</strong>
+                      </div>
+                      <div style={{ fontSize: '0.8rem' }}>
+                        Estado: <span className={`admin-badge badge-${
+                          selectedOrder.devolucion_estado === 'solicitada' ? 'pendiente' :
+                          selectedOrder.devolucion_estado === 'en_proceso' ? 'preparando' :
+                          selectedOrder.devolucion_estado === 'resuelta' ? 'confirmado' : 'cancelado'
+                        }`} style={{ textTransform: 'capitalize' }}>
+                          {selectedOrder.devolucion_estado.replace('_', ' ')}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedOrder.estado === 'entregado' && !selectedOrder.id_devolucion && (
+                    <div style={{ marginTop: '16px' }}>
+                      {!showReturnForm && (
+                        <button className="btn btn-secondary" style={{ width: '100%', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                          onClick={() => setShowReturnForm(true)}>
+                          📦 Solicitar Devolución o Reembolso
+                        </button>
+                      )}
+
+                      {showReturnForm && (
+                        <form onSubmit={handleReturnSubmit} style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '8px', marginTop: '8px' }}>
+                          <h4 style={{ marginBottom: '12px', fontSize: '0.9rem' }}>Formulario de Devolución</h4>
+                          {returnError && <div className="auth-error" style={{ marginBottom: '12px' }}>{returnError}</div>}
+                          
+                          <div className="input-group" style={{ marginBottom: '12px' }}>
+                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Motivo principal</label>
+                            <select className="input" required value={returnMotivo} onChange={e => setReturnMotivo(e.target.value)}
+                              style={{ width: '100%', background: 'var(--bg-primary)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '8px', borderRadius: '4px' }}>
+                              <option value="">-- Seleccionar --</option>
+                              <option value="Productos dañados o en mal estado">🥖 Productos dañados o en mal estado</option>
+                              <option value="Pedido equivocado o incompleto">📦 Pedido equivocado o incompleto</option>
+                              <option value="Retraso excesivo en la entrega">⏳ Retraso excesivo en la entrega</option>
+                              <option value="Calidad no corresponde a lo esperado">⭐ Calidad no corresponde a lo esperado</option>
+                              <option value="Otro">✏️ Otro (especificar abajo)</option>
+                            </select>
+                          </div>
+                          
+                          <div className="input-group" style={{ marginBottom: '12px' }}>
+                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Comentarios adicionales</label>
+                            <textarea className="input" rows={3} placeholder="Explica detalladamente la razón de la devolución..." required value={returnComentarios} onChange={e => setReturnComentarios(e.target.value)}
+                              style={{ width: '100%', background: 'var(--bg-primary)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '8px', borderRadius: '4px' }} />
+                          </div>
+                          
+                          <div style={{ display: 'flex', gap: '10px' }}>
+                            <button type="submit" className="btn btn-primary btn-sm" style={{ flex: 1 }} disabled={submittingReturn}>
+                              {submittingReturn ? 'Enviando...' : 'Enviar Solicitud'}
+                            </button>
+                            <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setShowReturnForm(false); setReturnError(''); }}>
+                              Cancelar
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
+                  )}
+
+                  {returnSuccess && (
+                    <div style={{
+                      marginTop: '16px', padding: '12px', borderRadius: '6px',
+                      background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.2)',
+                      color: '#22c55e', fontSize: '0.85rem'
+                    }}>
+                      ✓ ¡Solicitud de devolución enviada con éxito!
+                    </div>
                   )}
                 </>
               )}

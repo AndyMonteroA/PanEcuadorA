@@ -2,6 +2,83 @@ import { useState, useEffect } from 'react';
 import { workerAPI } from '../../services/api';
 import { FiClock, FiCheckCircle, FiPlay, FiSmile, FiAlertCircle } from 'react-icons/fi';
 
+function TaskCountdownTimer({ task }) {
+  const durationSeconds = (task.tiempo_elaboracion_min || 10) * task.cantidad * 60;
+  const timerKey = `task_start_${task.tipo}_${task.id_detalle}`;
+  
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const storedStart = localStorage.getItem(timerKey);
+    if (!storedStart) {
+      // Simulate that a task loaded from backend was already baking
+      const mockElapsed = Math.min(durationSeconds - 10, durationSeconds * 0.15); // 15% elapsed
+      const start = Date.now() - (mockElapsed * 1000);
+      localStorage.setItem(timerKey, start.toString());
+      return Math.max(0, Math.floor(durationSeconds - mockElapsed));
+    }
+    const elapsed = Math.floor((Date.now() - parseInt(storedStart)) / 1000);
+    return Math.max(0, durationSeconds - elapsed);
+  });
+
+  useEffect(() => {
+    if (timeLeft <= 0) return;
+
+    const timer = setInterval(() => {
+      const storedStart = localStorage.getItem(timerKey);
+      if (storedStart) {
+        const elapsed = Math.floor((Date.now() - parseInt(storedStart)) / 1000);
+        const remaining = Math.max(0, durationSeconds - elapsed);
+        setTimeLeft(remaining);
+        if (remaining <= 0) {
+          clearInterval(timer);
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [durationSeconds, timerKey, timeLeft]);
+
+  const elapsed = durationSeconds - timeLeft;
+  const progressPercent = durationSeconds > 0 ? Math.min(100, (elapsed / durationSeconds) * 100) : 100;
+
+  const formatTime = (secs) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  // Border alerts color logic
+  let progressColor = '#22c55e'; // Green
+  let textColor = '#22c55e';
+  if (progressPercent >= 60 && progressPercent < 85) {
+    progressColor = '#f97316'; // Orange
+    textColor = '#f97316';
+  } else if (progressPercent >= 85) {
+    progressColor = '#ef4444'; // Red
+    textColor = '#ef4444';
+  }
+
+  return (
+    <div style={{ marginTop: '12px', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '4px' }}>
+        <span style={{ color: 'var(--text-muted)' }}>Progreso horneado:</span>
+        <span style={{ color: textColor, fontWeight: 'bold', fontFamily: 'monospace' }}>
+          {timeLeft > 0 ? formatTime(timeLeft) : '⏳ ¡Listo para retirar!'}
+        </span>
+      </div>
+      <div style={{
+        width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)',
+        borderRadius: '4px', overflow: 'hidden'
+      }}>
+        <div style={{
+          width: `${progressPercent}%`, height: '100%',
+          background: progressColor, transition: 'width 1s linear, background-color 0.5s ease',
+          borderRadius: '4px'
+        }} />
+      </div>
+    </div>
+  );
+}
+
 export default function WorkerTasks() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,6 +103,11 @@ export default function WorkerTasks() {
     setUpdating(prev => ({ ...prev, [idDetalle]: true }));
     try {
       await workerAPI.updateTaskStatus(idDetalle, newStatus, tipo);
+      if (newStatus === 'preparando') {
+        localStorage.setItem(`task_start_${tipo}_${idDetalle}`, Date.now().toString());
+      } else if (newStatus === 'completado') {
+        localStorage.removeItem(`task_start_${tipo}_${idDetalle}`);
+      }
       setTasks(prevTasks =>
         prevTasks.map(t => (t.id_detalle === idDetalle && t.tipo === tipo ? { ...t, estado: newStatus } : t))
       );
@@ -163,6 +245,8 @@ export default function WorkerTasks() {
                     </>
                   )}
                 </div>
+
+                <TaskCountdownTimer task={task} />
 
                 <button
                   className="btn btn-primary btn-sm"

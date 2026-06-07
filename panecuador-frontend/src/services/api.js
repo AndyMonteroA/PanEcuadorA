@@ -56,6 +56,8 @@ export const productsAPI = {
   getFeatured: () => api.get('/products/featured'),
   getById: (id) => api.get(`/products/${id}`),
   getByCategory: (id) => api.get(`/products/category/${id}`),
+  getSuggestions: (q) => api.get('/products/search-suggestions', { params: { q } }),
+  getRecommendations: () => api.get('/products/recommendations'),
 };
 
 // ============================================================
