@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { FiGrid, FiBox, FiShoppingBag, FiUsers, FiLogOut, FiArrowLeft } from 'react-icons/fi';
+import { FiGrid, FiBox, FiShoppingBag, FiUsers, FiLogOut, FiArrowLeft, FiClock } from 'react-icons/fi';
 import '../admin/Admin.css';
 
 export default function ProducerLayout() {
@@ -26,7 +26,10 @@ export default function ProducerLayout() {
             <FiShoppingBag /> Mis Pedidos
           </NavLink>
           <NavLink to="/productor/trabajadores" className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}>
-            <FiUsers /> Mis Trabajadores
+            <FiUsers /> Mi Personal
+          </NavLink>
+          <NavLink to="/productor/turnos" className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}>
+            <FiClock /> Turnos Rotativos
           </NavLink>
         </nav>
 

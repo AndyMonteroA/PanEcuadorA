@@ -84,4 +84,17 @@ const producerOnly = (req, res, next) => {
   next();
 };
 
-module.exports = { authMiddleware, optionalAuth, adminOnly, producerOnly };
+/**
+ * Middleware de trabajador: verifica que sea trabajador o admin
+ */
+const workerOnly = (req, res, next) => {
+  if (!req.user || (req.user.rol !== 'trabajador' && req.user.rol !== 'admin')) {
+    return res.status(403).json({
+      success: false,
+      message: 'Acceso denegado. Se requieren permisos de trabajador.'
+    });
+  }
+  next();
+};
+
+module.exports = { authMiddleware, optionalAuth, adminOnly, producerOnly, workerOnly };

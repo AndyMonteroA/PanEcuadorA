@@ -37,6 +37,12 @@ import ProducerDashboard from './pages/producer/ProducerDashboard';
 import ProducerProducts from './pages/producer/ProducerProducts';
 import ProducerOrders from './pages/producer/ProducerOrders';
 import ProducerWorkers from './pages/producer/ProducerWorkers';
+import ProducerShifts from './pages/producer/ProducerShifts';
+
+// Worker Pages
+import WorkerLayout from './pages/worker/WorkerLayout';
+import WorkerDashboard from './pages/worker/WorkerDashboard';
+import WorkerTasks from './pages/worker/WorkerTasks';
 
 import './App.css';
 
@@ -55,6 +61,15 @@ function ProducerRoute({ children }) {
   if (loading) return null;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (!isProducer) return <Navigate to="/" replace />;
+  return children;
+}
+
+// Componente para proteger rutas trabajador
+function WorkerRoute({ children }) {
+  const { isWorker, isAuthenticated, loading } = useAuth();
+  if (loading) return null;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isWorker) return <Navigate to="/" replace />;
   return children;
 }
 
@@ -99,6 +114,20 @@ function App() {
               <Route path="productos" element={<ProducerProducts />} />
               <Route path="pedidos" element={<ProducerOrders />} />
               <Route path="trabajadores" element={<ProducerWorkers />} />
+              <Route path="turnos" element={<ProducerShifts />} />
+            </Route>
+
+            {/* Rutas del Trabajador — sin Navbar/Footer */}
+            <Route
+              path="/trabajador"
+              element={
+                <WorkerRoute>
+                  <WorkerLayout />
+                </WorkerRoute>
+              }
+            >
+              <Route index element={<WorkerDashboard />} />
+              <Route path="tareas" element={<WorkerTasks />} />
             </Route>
 
             {/* Rutas del cliente — con Navbar/Footer */}

@@ -4,6 +4,7 @@ const pool = require('../config/db');
 const { authMiddleware, producerOnly } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
+const bcrypt = require('bcryptjs');
 const { renovarStock } = require('../services/stockRotation');
 
 // Proteger todas las rutas
@@ -28,7 +29,6 @@ async function getProducerId(userId) {
 // ============================================================
 // DASHBOARD del Productor
 // ============================================================
-
 router.get('/dashboard', async (req, res, next) => {
   try {
     const producerId = await getProducerId(req.user.id);
@@ -87,7 +87,6 @@ router.get('/dashboard', async (req, res, next) => {
 // ============================================================
 // MIS PRODUCTOS
 // ============================================================
-
 router.get('/products', async (req, res, next) => {
   try {
     const producerId = await getProducerId(req.user.id);
@@ -194,7 +193,6 @@ router.post('/products/:id/renew-stock', async (req, res, next) => {
 // ============================================================
 // MIS PEDIDOS (pedidos que contienen mis productos)
 // ============================================================
-
 router.get('/orders', async (req, res, next) => {
   try {
     const producerId = await getProducerId(req.user.id);
@@ -204,8 +202,10 @@ router.get('/orders', async (req, res, next) => {
       SELECT DISTINCT p.*,
              u.nombre AS cliente_nombre, u.apellido AS cliente_apellido, u.email AS cliente_email,
              (SELECT json_agg(json_build_object(
+                'id_detalle', dp2.id_detalle,
                 'producto', pr.nombre, 'cantidad', dp2.cantidad,
-                'precio', dp2.precio_unitario, 'subtotal', dp2.subtotal
+                'precio', dp2.precio_unitario, 'subtotal', dp2.subtotal,
+                'estado', dp2.estado
               ))
               FROM detalle_pedido dp2
               JOIN productos pr ON dp2.id_producto = pr.id_producto
@@ -224,27 +224,271 @@ router.get('/orders', async (req, res, next) => {
 });
 
 // ============================================================
-// MIS TRABAJADORES
+// GESTIÓN DE TRABAJADORES (PRODUCER)
 // ============================================================
 
+// Obtener todos los trabajadores del productor con su usuario vinculado
 router.get('/workers', async (req, res, next) => {
   try {
     const producerId = await getProducerId(req.user.id);
     if (!producerId) return res.status(404).json({ success: false, message: 'No tienes un negocio vinculado.' });
 
     const result = await pool.query(`
-      SELECT t.*,
+      SELECT t.*, u.email,
              (SELECT json_build_object('nombre', tu.nombre, 'hora_inicio', tu.hora_inicio, 'hora_fin', tu.hora_fin)
               FROM asignacion_turnos at2
               JOIN turnos tu ON at2.id_turno = tu.id_turno
               WHERE at2.id_trabajador = t.id_trabajador AND at2.fecha = CURRENT_DATE
               LIMIT 1) AS turno_hoy
       FROM trabajadores t
+      LEFT JOIN usuarios u ON t.id_usuario = u.id_usuario
       WHERE t.id_productor = $1
       ORDER BY t.nombre
     `, [producerId]);
 
     res.json({ success: true, data: result.rows });
+  } catch (error) { next(error); }
+});
+
+// Crear trabajador y su cuenta de usuario (rol trabajador)
+router.post('/workers', async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const producerId = await getProducerId(req.user.id);
+    if (!producerId) return res.status(404).json({ success: false, message: 'No tienes un negocio vinculado.' });
+
+    const { nombre, apellido, cedula, especialidad, telefono, email, password } = req.body;
+    if (!nombre || !apellido || !cedula || !especialidad) {
+      return res.status(400).json({ success: false, message: 'Nombre, apellido, cédula y especialidad son obligatorios.' });
+    }
+
+    await client.query('BEGIN');
+
+    let idUsuario = null;
+
+    // Crear cuenta de usuario si se proporciona email y password
+    if (email && password) {
+      const existingUser = await client.query('SELECT id_usuario FROM usuarios WHERE email = $1', [email]);
+      if (existingUser.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ success: false, message: 'Ya existe un usuario con este correo electrónico.' });
+      }
+
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(password, salt);
+
+      const userResult = await client.query(
+        `INSERT INTO usuarios (nombre, apellido, email, password_hash, telefono, rol)
+         VALUES ($1, $2, $3, $4, $5, 'trabajador') RETURNING id_usuario`,
+        [nombre, apellido, email, passwordHash, telefono || null]
+      );
+      idUsuario = userResult.rows[0].id_usuario;
+    }
+
+    // Crear trabajador
+    const workerResult = await client.query(
+      `INSERT INTO trabajadores (nombre, apellido, cedula, especialidad, telefono, id_productor, id_usuario)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [nombre, apellido, cedula, especialidad, telefono || null, producerId, idUsuario]
+    );
+
+    await client.query('COMMIT');
+    res.status(201).json({ success: true, data: workerResult.rows[0] });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    if (error.code === '23505') {
+      return res.status(400).json({ success: false, message: 'Ya existe un trabajador con esa cédula.' });
+    }
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+// Actualizar trabajador y su cuenta de usuario
+router.put('/workers/:id', async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const producerId = await getProducerId(req.user.id);
+    const workerId = req.params.id;
+
+    const check = await client.query('SELECT id_usuario, id_trabajador FROM trabajadores WHERE id_trabajador = $1 AND id_productor = $2', [workerId, producerId]);
+    if (check.rows.length === 0) return res.status(403).json({ success: false, message: 'No tienes permiso para editar este trabajador.' });
+
+    const currentWorker = check.rows[0];
+    const { nombre, apellido, cedula, especialidad, telefono, activo, email, password } = req.body;
+
+    await client.query('BEGIN');
+
+    let idUsuario = currentWorker.id_usuario;
+
+    if (email) {
+      if (idUsuario) {
+        const checkEmail = await client.query('SELECT id_usuario FROM usuarios WHERE email = $1 AND id_usuario != $2', [email, idUsuario]);
+        if (checkEmail.rows.length > 0) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({ success: false, message: 'El correo electrónico ya está en uso.' });
+        }
+
+        await client.query(
+          `UPDATE usuarios SET nombre = $1, apellido = $2, email = $3, telefono = $4 WHERE id_usuario = $5`,
+          [nombre, apellido, email, telefono || null, idUsuario]
+        );
+      } else {
+        const checkEmail = await client.query('SELECT id_usuario FROM usuarios WHERE email = $1', [email]);
+        if (checkEmail.rows.length > 0) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({ success: false, message: 'El correo electrónico ya está en uso.' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(password || '123456', salt);
+
+        const userResult = await client.query(
+          `INSERT INTO usuarios (nombre, apellido, email, password_hash, telefono, rol)
+           VALUES ($1, $2, $3, $4, $5, 'trabajador') RETURNING id_usuario`,
+          [nombre, apellido, email, passwordHash, telefono || null]
+        );
+        idUsuario = userResult.rows[0].id_usuario;
+      }
+    }
+
+    if (password && idUsuario) {
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(password, salt);
+      await client.query('UPDATE usuarios SET password_hash = $1 WHERE id_usuario = $2', [passwordHash, idUsuario]);
+    }
+
+    const workerResult = await client.query(
+      `UPDATE trabajadores SET
+        nombre = COALESCE($1, nombre),
+        apellido = COALESCE($2, apellido),
+        cedula = COALESCE($3, cedula),
+        especialidad = COALESCE($4, especialidad),
+        telefono = COALESCE($5, telefono),
+        activo = COALESCE($6, activo),
+        id_usuario = COALESCE($7, id_usuario)
+       WHERE id_trabajador = $8 RETURNING *`,
+      [nombre, apellido, cedula, especialidad, telefono,
+       activo !== undefined ? (activo === 'true' || activo === true) : null,
+       idUsuario, workerId]
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, data: workerResult.rows[0] });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+// Eliminar trabajador
+router.delete('/workers/:id', async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const producerId = await getProducerId(req.user.id);
+    const workerId = req.params.id;
+
+    const check = await client.query('SELECT id_usuario FROM trabajadores WHERE id_trabajador = $1 AND id_productor = $2', [workerId, producerId]);
+    if (check.rows.length === 0) return res.status(403).json({ success: false, message: 'No tienes permiso.' });
+
+    const idUsuario = check.rows[0].id_usuario;
+
+    await client.query('BEGIN');
+
+    await client.query('DELETE FROM asignacion_turnos WHERE id_trabajador = $1', [workerId]);
+    await client.query('DELETE FROM trabajadores WHERE id_trabajador = $1', [workerId]);
+    if (idUsuario) {
+      await client.query('DELETE FROM usuarios WHERE id_usuario = $1', [idUsuario]);
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Trabajador eliminado.' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+// ============================================================
+// GESTIÓN DE TURNOS (PRODUCER)
+// ============================================================
+
+// Obtener turnos base
+router.get('/shifts-list', async (req, res, next) => {
+  try {
+    const turnos = await pool.query('SELECT * FROM turnos ORDER BY hora_inicio');
+    res.json({ success: true, data: turnos.rows });
+  } catch (error) { next(error); }
+});
+
+// Obtener asignaciones del personal del productor
+router.get('/shift-assignments', async (req, res, next) => {
+  try {
+    const producerId = await getProducerId(req.user.id);
+    if (!producerId) return res.status(404).json({ success: false, message: 'No tienes un negocio vinculado.' });
+
+    const { fecha_inicio, fecha_fin } = req.query;
+    const start = fecha_inicio || new Date().toISOString().split('T')[0];
+    const end = fecha_fin || new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+
+    const result = await pool.query(`
+      SELECT at2.*, t.nombre, t.apellido, t.especialidad,
+             tu.nombre as turno_nombre, tu.hora_inicio, tu.hora_fin
+      FROM asignacion_turnos at2
+      JOIN trabajadores t ON at2.id_trabajador = t.id_trabajador
+      JOIN turnos tu ON at2.id_turno = tu.id_turno
+      WHERE t.id_productor = $1 AND at2.fecha BETWEEN $2 AND $3
+      ORDER BY at2.fecha, tu.hora_inicio
+    `, [producerId, start, end]);
+
+    res.json({ success: true, data: result.rows });
+  } catch (error) { next(error); }
+});
+
+// Asignar turno
+router.post('/shift-assignments', async (req, res, next) => {
+  try {
+    const producerId = await getProducerId(req.user.id);
+    const { id_trabajador, id_turno, fecha } = req.body;
+
+    const check = await pool.query('SELECT id_trabajador FROM trabajadores WHERE id_trabajador = $1 AND id_productor = $2', [id_trabajador, producerId]);
+    if (check.rows.length === 0) return res.status(403).json({ success: false, message: 'El trabajador no pertenece a tu negocio.' });
+
+    const result = await pool.query(
+      'INSERT INTO asignacion_turnos (id_trabajador, id_turno, fecha) VALUES ($1, $2, $3) RETURNING *',
+      [id_trabajador, id_turno, fecha]
+    );
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(400).json({ success: false, message: 'Este trabajador ya tiene turno asignado en esa fecha.' });
+    }
+    next(error);
+  }
+});
+
+// Eliminar asignación
+router.delete('/shift-assignments/:id', async (req, res, next) => {
+  try {
+    const producerId = await getProducerId(req.user.id);
+    const assignmentId = req.params.id;
+
+    const check = await pool.query(`
+      SELECT at2.id_asignacion 
+      FROM asignacion_turnos at2
+      JOIN trabajadores t ON at2.id_trabajador = t.id_trabajador
+      WHERE at2.id_asignacion = $1 AND t.id_productor = $2
+    `, [assignmentId, producerId]);
+
+    if (check.rows.length === 0) return res.status(403).json({ success: false, message: 'No tienes permiso sobre esta asignación.' });
+
+    await pool.query('DELETE FROM asignacion_turnos WHERE id_asignacion = $1', [assignmentId]);
+    res.json({ success: true, message: 'Asignación eliminada.' });
   } catch (error) { next(error); }
 });
 

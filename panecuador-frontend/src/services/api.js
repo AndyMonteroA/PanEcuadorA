@@ -19,6 +19,12 @@ api.interceptors.request.use((config) => {
 });
 
 // Interceptor: manejar errores globales
+api.interceptors.request.use((config) => {
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -36,7 +42,6 @@ api.interceptors.response.use(
 // ============================================================
 // AUTH
 // ============================================================
-
 export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
@@ -46,7 +51,6 @@ export const authAPI = {
 // ============================================================
 // PRODUCTS
 // ============================================================
-
 export const productsAPI = {
   getAll: (params) => api.get('/products', { params }),
   getFeatured: () => api.get('/products/featured'),
@@ -57,7 +61,6 @@ export const productsAPI = {
 // ============================================================
 // CATEGORIES
 // ============================================================
-
 export const categoriesAPI = {
   getAll: () => api.get('/categories'),
 };
@@ -65,7 +68,6 @@ export const categoriesAPI = {
 // ============================================================
 // CART
 // ============================================================
-
 export const cartAPI = {
   get: () => api.get('/cart'),
   add: (id_producto, cantidad = 1) => api.post('/cart', { id_producto, cantidad }),
@@ -77,7 +79,6 @@ export const cartAPI = {
 // ============================================================
 // ORDERS
 // ============================================================
-
 export const ordersAPI = {
   create: (data) => api.post('/orders', data),
   getAll: (params) => api.get('/orders', { params }),
@@ -88,7 +89,6 @@ export const ordersAPI = {
 // ============================================================
 // SUBSCRIPTIONS
 // ============================================================
-
 export const subscriptionsAPI = {
   getPlans: () => api.get('/subscriptions/plans'),
   getMy: () => api.get('/subscriptions/my'),
@@ -99,7 +99,6 @@ export const subscriptionsAPI = {
 // ============================================================
 // REVIEWS & FAVORITES
 // ============================================================
-
 export const reviewsAPI = {
   getByProduct: (id, params) => api.get(`/reviews/product/${id}`, { params }),
   create: (data) => api.post('/reviews', data),
@@ -111,7 +110,6 @@ export const reviewsAPI = {
 // ============================================================
 // NOTIFICATIONS
 // ============================================================
-
 export const notificationsAPI = {
   getAll: (params) => api.get('/notifications', { params }),
   markRead: (id) => api.put(`/notifications/${id}/read`),
@@ -121,7 +119,6 @@ export const notificationsAPI = {
 // ============================================================
 // USERS
 // ============================================================
-
 export const usersAPI = {
   getProfile: () => api.get('/users/profile'),
   updateProfile: (data) => api.put('/users/profile', data),
@@ -133,7 +130,6 @@ export const usersAPI = {
 // ============================================================
 // ADMIN
 // ============================================================
-
 export const adminAPI = {
   // Dashboard
   getStats: () => api.get('/admin/stats'),
@@ -203,7 +199,6 @@ export const adminAPI = {
 // ============================================================
 // PRODUCER (Panel Productor)
 // ============================================================
-
 export const producerAPI = {
   getDashboard: () => api.get('/producer/dashboard'),
   getProducts: () => api.get('/producer/products'),
@@ -215,13 +210,30 @@ export const producerAPI = {
   }),
   renewStock: (id, stock) => api.post(`/producer/products/${id}/renew-stock`, { stock }),
   getOrders: () => api.get('/producer/orders'),
+  
+  // Workers & Shifts CRUD para Productor
   getWorkers: () => api.get('/producer/workers'),
+  createWorker: (data) => api.post('/producer/workers', data),
+  updateWorker: (id, data) => api.put(`/producer/workers/${id}`, data),
+  deleteWorker: (id) => api.delete(`/producer/workers/${id}`),
+  getShiftsList: () => api.get('/producer/shifts-list'),
+  getShiftAssignments: (params) => api.get('/producer/shift-assignments', { params }),
+  createShiftAssignment: (data) => api.post('/producer/shift-assignments', data),
+  deleteShiftAssignment: (id) => api.delete(`/producer/shift-assignments/${id}`),
+};
+
+// ============================================================
+// WORKER (Portal de Cocina / Operario)
+// ============================================================
+export const workerAPI = {
+  getDashboard: () => api.get('/worker/dashboard'),
+  getTasks: () => api.get('/worker/tasks'),
+  updateTaskStatus: (id_detalle, estado) => api.patch(`/worker/tasks/${id_detalle}/status`, { estado }),
 };
 
 // ============================================================
 // SITE CONFIG (Configuración del Sitio)
 // ============================================================
-
 export const siteConfigAPI = {
   // Admin: obtener configuración completa con metadata
   getAdmin: () => api.get('/admin/site-config'),
@@ -232,4 +244,3 @@ export const siteConfigAPI = {
 };
 
 export default api;
-

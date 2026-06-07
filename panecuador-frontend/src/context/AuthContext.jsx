@@ -53,7 +53,8 @@ export function AuthProvider({ children }) {
     logout,
     isAuthenticated: !!user,
     isAdmin: user?.rol === 'admin',
-    isProducer: user?.rol === 'productor'
+    isProducer: user?.rol === 'productor',
+    isWorker: user?.rol === 'trabajador'
   };
 
   return (

@@ -1,28 +1,31 @@
 import { useState, useEffect } from 'react';
 import { producerAPI } from '../../services/api';
-import { FiClock, FiUser, FiPhone, FiSun, FiMoon, FiSunrise } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiClock, FiUser, FiPhone, FiMail, FiLock } from 'react-icons/fi';
 
-const SPECIALTY_LABELS = {
-  panadero: { label: 'Panadero', emoji: '🥖', color: '#f59e0b' },
-  pastelero: { label: 'Pastelero', emoji: '🎂', color: '#ec4899' },
-  ambos: { label: 'Panadero & Pastelero', emoji: '🍞', color: '#6366f1' },
-};
-
-const SHIFT_CONFIG = {
-  Mañana: { icon: FiSunrise, color: '#f59e0b', bg: '#fef3c7', label: 'Turno Mañana' },
-  Tarde:  { icon: FiSun,     color: '#3b82f6', bg: '#dbeafe', label: 'Turno Tarde' },
-  Noche:  { icon: FiMoon,    color: '#8b5cf6', bg: '#ede9fe', label: 'Turno Noche' },
-};
+const SPECIALTIES = { panadero: '🥖 Panadero', pastelero: '🎂 Pastelero', ambos: '🍞 Ambos' };
 
 export default function ProducerWorkers() {
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState({ open: false, mode: 'create', data: null });
+  const [form, setForm] = useState({
+    nombre: '',
+    apellido: '',
+    cedula: '',
+    especialidad: 'panadero',
+    telefono: '',
+    email: '',
+    password: ''
+  });
+  const [saving, setSaving] = useState(false);
+  const [alert, setAlert] = useState(null);
 
   useEffect(() => {
-    fetchWorkers();
+    loadWorkers();
   }, []);
 
-  async function fetchWorkers() {
+  const loadWorkers = async () => {
+    setLoading(true);
     try {
       const res = await producerAPI.getWorkers();
       setWorkers(res.data.data);
@@ -31,164 +34,243 @@ export default function ProducerWorkers() {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  if (loading) {
-    return (
-      <div className="admin-page">
-        <div className="loading-screen"><div className="spinner" /><p>Cargando trabajadores...</p></div>
-      </div>
-    );
-  }
+  const openCreate = () => {
+    setForm({
+      nombre: '',
+      apellido: '',
+      cedula: '',
+      especialidad: 'panadero',
+      telefono: '',
+      email: '',
+      password: ''
+    });
+    setModal({ open: true, mode: 'create', data: null });
+  };
 
-  const today = new Date().toLocaleDateString('es-EC', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const openEdit = (w) => {
+    setForm({
+      nombre: w.nombre,
+      apellido: w.apellido,
+      cedula: w.cedula,
+      especialidad: w.especialidad,
+      telefono: w.telefono || '',
+      email: w.email || '',
+      password: '' // Contraseña en blanco por seguridad al editar
+    });
+    setModal({ open: true, mode: 'edit', data: w });
+  };
 
-  const workersOnShift = workers.filter(w => w.turno_hoy);
-  const workersOffShift = workers.filter(w => !w.turno_hoy);
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const payload = { ...form };
+      if (!payload.email) delete payload.email;
+      if (!payload.password) delete payload.password;
+
+      if (modal.mode === 'create') {
+        await producerAPI.createWorker(payload);
+        showAlert('Trabajador registrado y cuenta de acceso creada (si se proporcionó correo)', 'success');
+      } else {
+        await producerAPI.updateWorker(modal.data.id_trabajador, payload);
+        showAlert('Trabajador y credenciales actualizados correctamente', 'success');
+      }
+      setModal({ open: false, mode: 'create', data: null });
+      loadWorkers();
+    } catch (err) {
+      showAlert(err.response?.data?.message || 'Error al guardar trabajador', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id, nombre) => {
+    if (!confirm(`¿Eliminar al trabajador "${nombre}"? Esto también eliminará su cuenta de usuario y asignaciones de turno.`)) return;
+    try {
+      await producerAPI.deleteWorker(id);
+      showAlert('Trabajador eliminado correctamente', 'success');
+      loadWorkers();
+    } catch (err) {
+      showAlert(err.response?.data?.message || 'Error al eliminar trabajador', 'error');
+    }
+  };
+
+  const showAlert = (message, type) => {
+    setAlert({ message, type });
+    setTimeout(() => setAlert(null), 4000);
+  };
+
+  const especialidadBadge = (esp) => {
+    const colors = { panadero: 'badge-confirmado', pastelero: 'badge-preparando', ambos: 'badge-entregado' };
+    return <span className={`admin-badge ${colors[esp] || ''}`}>{SPECIALTIES[esp] || esp}</span>;
+  };
 
   return (
     <div className="admin-page">
-      {/* Header */}
       <div className="admin-page-header" style={{ marginBottom: '24px' }}>
         <div>
-          <h1 className="admin-page-title">👷 Mis Trabajadores</h1>
+          <h1 className="admin-page-title">👷 Gestión de Personal</h1>
           <p style={{ color: 'var(--text-muted)', marginTop: '4px', fontSize: '0.9rem' }}>
-            📅 {today}
+            Registra trabajadores, edita sus especialidades y configura sus credenciales de acceso para la cocina.
           </p>
         </div>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: '8px',
-          background: 'var(--bg-card)', padding: '10px 18px',
-          borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-sm)'
-        }}>
-          <FiUser size={16} style={{ color: 'var(--color-primary)' }} />
-          <strong>{workers.length}</strong>
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>trabajadores en tu equipo</span>
-        </div>
+        <button className="btn btn-primary" onClick={openCreate}>
+          <FiPlus /> Registrar Trabajador
+        </button>
       </div>
 
-      {workers.length === 0 ? (
-        <div className="empty-state card">
-          <span className="empty-emoji">👷</span>
-          <h3>Sin trabajadores asignados</h3>
-          <p>El administrador aún no ha asignado trabajadores a tu negocio.</p>
+      {alert && (
+        <div className={`alert ${alert.type === 'success' ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: '20px' }}>
+          {alert.message}
         </div>
-      ) : (
-        <>
-          {/* Working today section */}
-          {workersOnShift.length > 0 && (
-            <section style={{ marginBottom: '32px' }}>
-              <h2 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ color: '#22c55e' }}>●</span> Trabajando hoy ({workersOnShift.length})
-              </h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-                {workersOnShift.map(worker => {
-                  const spec = SPECIALTY_LABELS[worker.especialidad] || { label: worker.especialidad, emoji: '👤', color: '#6b7280' };
-                  const turno = worker.turno_hoy;
-                  const shiftConf = SHIFT_CONFIG[turno?.nombre] || {};
-                  const ShiftIcon = shiftConf.icon || FiClock;
+      )}
 
-                  return (
-                    <div key={worker.id_trabajador} className="card" style={{ padding: '20px', border: `2px solid ${shiftConf.color || '#e5e7eb'}` }}>
-                      {/* Worker header */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
-                        <div style={{
-                          width: '50px', height: '50px', borderRadius: '50%',
-                          background: `${spec.color}20`, display: 'flex',
-                          alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem'
-                        }}>
-                          {spec.emoji}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: '700', fontSize: '1rem' }}>
-                            {worker.nombre} {worker.apellido}
-                          </div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                            Cédula: {worker.cedula}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Specialty */}
-                      <div style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '6px',
-                        padding: '4px 12px', borderRadius: '20px',
-                        background: `${spec.color}15`, color: spec.color,
-                        fontWeight: '600', fontSize: '0.8rem', marginBottom: '12px'
-                      }}>
-                        {spec.emoji} {spec.label}
-                      </div>
-
-                      {/* Shift badge */}
-                      {turno && (
-                        <div style={{
-                          display: 'flex', alignItems: 'center', gap: '8px',
-                          padding: '10px 14px', borderRadius: '10px',
-                          background: shiftConf.bg || '#f3f4f6', marginBottom: '12px'
-                        }}>
-                          <ShiftIcon size={18} style={{ color: shiftConf.color }} />
-                          <div>
-                            <div style={{ fontWeight: '700', fontSize: '0.875rem', color: shiftConf.color }}>
-                              {shiftConf.label || turno.nombre}
-                            </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                              {turno.hora_inicio?.slice(0, 5)} – {turno.hora_fin?.slice(0, 5)}
-                            </div>
-                          </div>
-                          <div style={{ marginLeft: 'auto', width: '10px', height: '10px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e' }} />
-                        </div>
-                      )}
-
-                      {/* Phone */}
-                      {worker.telefono && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          <FiPhone size={13} /> {worker.telefono}
-                        </div>
-                      )}
+      {/* Workers table */}
+      <div className="card" style={{ padding: '24px', overflowX: 'auto' }}>
+        <h3 style={{ marginBottom: '20px' }}>Miembros de tu Equipo ({workers.length})</h3>
+        
+        {loading ? (
+          <div className="loading-screen"><div className="spinner" /><p>Cargando trabajadores...</p></div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid var(--bg-secondary)', color: 'var(--text-muted)', fontWeight: '600' }}>
+                <th style={{ padding: '12px', textAlign: 'left' }}><FiUser size={14} /> Nombre</th>
+                <th style={{ padding: '12px', textAlign: 'left' }}>Cédula</th>
+                <th style={{ padding: '12px', textAlign: 'left' }}>Especialidad</th>
+                <th style={{ padding: '12px', textAlign: 'left' }}><FiPhone size={14} /> Teléfono</th>
+                <th style={{ padding: '12px', textAlign: 'left' }}><FiMail size={14} /> Correo de Acceso</th>
+                <th style={{ padding: '12px', textAlign: 'left' }}><FiClock size={14} /> Turno Hoy</th>
+                <th style={{ padding: '12px', textAlign: 'center' }}>Estado</th>
+                <th style={{ padding: '12px', textAlign: 'center' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {workers.map(w => (
+                <tr key={w.id_trabajador} style={{ borderBottom: '1px solid var(--bg-secondary)' }}>
+                  <td style={{ padding: '12px', fontWeight: '600' }}>{w.nombre} {w.apellido}</td>
+                  <td style={{ padding: '12px' }}>{w.cedula}</td>
+                  <td style={{ padding: '12px' }}>{especialidadBadge(w.especialidad)}</td>
+                  <td style={{ padding: '12px' }}>{w.telefono || '—'}</td>
+                  <td style={{ padding: '12px' }}>
+                    {w.email ? (
+                      <span style={{ color: 'var(--color-primary-light)', fontWeight: '500' }}>{w.email}</span>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Sin cuenta</span>
+                    )}
+                  </td>
+                  <td style={{ padding: '12px' }}>
+                    {w.turno_hoy ? (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        🟢 {w.turno_hoy.nombre}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)' }}>Off hoy</span>
+                    )}
+                  </td>
+                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                    <span className={`admin-badge ${w.activo ? 'badge-available' : 'badge-unavailable'}`}>
+                      {w.activo ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => openEdit(w)} title="Editar">
+                        <FiEdit2 size={14} />
+                      </button>
+                      <button className="btn btn-secondary btn-sm" onClick={() => handleDelete(w.id_trabajador, w.nombre)} title="Eliminar" style={{ color: 'red' }}>
+                        <FiTrash2 size={14} />
+                      </button>
                     </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+                  </td>
+                </tr>
+              ))}
+              {workers.length === 0 && (
+                <tr>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+                    No hay trabajadores registrados en tu local.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
 
-          {/* Off shift section */}
-          {workersOffShift.length > 0 && (
-            <section>
-              <h2 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ color: '#9ca3af' }}>●</span> Sin turno hoy ({workersOffShift.length})
-              </h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
-                {workersOffShift.map(worker => {
-                  const spec = SPECIALTY_LABELS[worker.especialidad] || { label: worker.especialidad, emoji: '👤', color: '#6b7280' };
-                  return (
-                    <div key={worker.id_trabajador} className="card" style={{ padding: '18px', opacity: 0.75 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{
-                          width: '44px', height: '44px', borderRadius: '50%',
-                          background: '#f3f4f6', display: 'flex',
-                          alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem'
-                        }}>
-                          {spec.emoji}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: '600' }}>{worker.nombre} {worker.apellido}</div>
-                          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{spec.label}</div>
-                        </div>
-                        <div style={{
-                          marginLeft: 'auto', fontSize: '0.75rem', color: '#9ca3af',
-                          background: '#f3f4f6', padding: '4px 10px', borderRadius: '20px'
-                        }}>
-                          Libre hoy
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+      {/* Modal — Crear/Editar trabajador */}
+      {modal.open && (
+        <div className="admin-modal-overlay" onClick={() => setModal({ open: false, mode: 'create', data: null })}>
+          <div className="admin-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px' }}>
+            <h2 style={{ marginBottom: '20px' }}>
+              {modal.mode === 'create' ? '👷 Registrar Nuevo Trabajador' : '✏️ Editar Datos del Trabajador'}
+            </h2>
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="admin-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="admin-form-group">
+                  <label className="form-label">Nombre *</label>
+                  <input className="input" value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} required placeholder="Ej: Juan" />
+                </div>
+                <div className="admin-form-group">
+                  <label className="form-label">Apellido *</label>
+                  <input className="input" value={form.apellido} onChange={e => setForm({ ...form, apellido: e.target.value })} required placeholder="Ej: Pérez" />
+                </div>
               </div>
-            </section>
-          )}
-        </>
+
+              <div className="admin-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="admin-form-group">
+                  <label className="form-label">Cédula *</label>
+                  <input className="input" value={form.cedula} onChange={e => setForm({ ...form, cedula: e.target.value })} required maxLength={15} placeholder="Ej: 1712345678" />
+                </div>
+                <div className="admin-form-group">
+                  <label className="form-label">Especialidad *</label>
+                  <select className="input" value={form.especialidad} onChange={e => setForm({ ...form, especialidad: e.target.value })}>
+                    <option value="panadero">Panadero 🥖</option>
+                    <option value="pastelero">Pastelero 🎂</option>
+                    <option value="ambos">Ambos (Pan & Pasteles) 🍞</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="admin-form-group">
+                <label className="form-label">Teléfono</label>
+                <input className="input" value={form.telefono} onChange={e => setForm({ ...form, telefono: e.target.value })} placeholder="Ej: 0991234567" />
+              </div>
+
+              {/* Acceso de Login */}
+              <div style={{ marginTop: '12px', padding: '16px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px dashed var(--bg-card)' }}>
+                <h4 style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', fontSize: '0.9rem' }}>
+                  <FiLock /> Cuenta de Acceso a Cocina (Opcional)
+                </h4>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                  Proporciona un correo y contraseña para que este trabajador pueda iniciar sesión en el portal de cocina.
+                </p>
+                <div className="admin-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="admin-form-group">
+                    <label className="form-label">Email de acceso</label>
+                    <input className="input" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="operario@panecuador.online" />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="form-label">
+                      {modal.mode === 'create' ? 'Contraseña' : 'Cambiar contraseña'}
+                    </label>
+                    <input className="input" type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Min 6 caracteres" minLength={6} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="admin-modal-actions" style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setModal({ open: false, mode: 'create', data: null })}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  {saving ? 'Guardando...' : (modal.mode === 'create' ? 'Registrar' : 'Guardar Cambios')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -23,6 +23,8 @@ export function Login() {
         navigate('/admin');
       } else if (userData.rol === 'productor') {
         navigate('/productor');
+      } else if (userData.rol === 'trabajador') {
+        navigate('/trabajador');
       } else {
         navigate('/');
       }
