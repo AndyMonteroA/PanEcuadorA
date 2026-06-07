@@ -17,8 +17,13 @@ export function Login() {
     setError('');
     setLoading(true);
     try {
-      await login(form.email, form.password);
-      navigate('/');
+      const userData = await login(form.email, form.password);
+      // Redirigir según el rol del usuario
+      if (userData.rol === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Error al iniciar sesión');
     } finally {

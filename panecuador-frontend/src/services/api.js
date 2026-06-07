@@ -130,4 +130,40 @@ export const usersAPI = {
   addPaymentMethod: (data) => api.post('/users/payment-methods', data),
 };
 
+// ============================================================
+// ADMIN
+// ============================================================
+
+export const adminAPI = {
+  // Dashboard
+  getStats: () => api.get('/admin/stats'),
+
+  // Products
+  getProducts: (params) => api.get('/admin/products', { params }),
+  createProduct: (formData) => api.post('/admin/products', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  updateProduct: (id, formData) => api.put(`/admin/products/${id}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  deleteProduct: (id) => api.delete(`/admin/products/${id}`),
+
+  // Categories
+  getCategories: () => api.get('/admin/categories'),
+  createCategory: (data) => api.post('/admin/categories', data),
+  updateCategory: (id, data) => api.put(`/admin/categories/${id}`, data),
+  deleteCategory: (id) => api.delete(`/admin/categories/${id}`),
+
+  // Orders
+  getOrders: (params) => api.get('/admin/orders', { params }),
+  getOrder: (id) => api.get(`/admin/orders/${id}`),
+  updateOrderStatus: (id, estado) => api.put(`/admin/orders/${id}/status`, { estado }),
+
+  // Users
+  getUsers: (params) => api.get('/admin/users', { params }),
+
+  // Producers
+  getProducers: () => api.get('/admin/producers'),
+};
+
 export default api;

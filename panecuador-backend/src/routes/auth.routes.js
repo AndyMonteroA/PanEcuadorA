@@ -49,15 +49,15 @@ router.post('/register', [
     const result = await pool.query(
       `INSERT INTO usuarios (nombre, apellido, email, password_hash, telefono)
        VALUES ($1, $2, $3, $4, $5)
-       RETURNING id_usuario, nombre, apellido, email, telefono, fecha_registro`,
+       RETURNING id_usuario, nombre, apellido, email, telefono, rol, fecha_registro`,
       [nombre, apellido, email, passwordHash, telefono || null]
     );
 
     const user = result.rows[0];
 
-    // Generar JWT
+    // Generar JWT (incluye rol)
     const token = jwt.sign(
-      { id: user.id_usuario, email: user.email },
+      { id: user.id_usuario, email: user.email, rol: user.rol },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
@@ -72,6 +72,7 @@ router.post('/register', [
           apellido: user.apellido,
           email: user.email,
           telefono: user.telefono,
+          rol: user.rol,
           fechaRegistro: user.fecha_registro
         },
         token
@@ -122,9 +123,9 @@ router.post('/login', [
       });
     }
 
-    // Generar JWT
+    // Generar JWT (incluye rol)
     const token = jwt.sign(
-      { id: user.id_usuario, email: user.email },
+      { id: user.id_usuario, email: user.email, rol: user.rol },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
@@ -139,7 +140,8 @@ router.post('/login', [
           apellido: user.apellido,
           email: user.email,
           telefono: user.telefono,
-          fotoPerfil: user.foto_perfil_url
+          fotoPerfil: user.foto_perfil_url,
+          rol: user.rol
         },
         token
       }
@@ -156,7 +158,7 @@ router.post('/login', [
 router.get('/me', authMiddleware, async (req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT id_usuario, nombre, apellido, email, telefono, foto_perfil_url, fecha_registro
+      `SELECT id_usuario, nombre, apellido, email, telefono, foto_perfil_url, rol, fecha_registro
        FROM usuarios WHERE id_usuario = $1`,
       [req.user.id]
     );
@@ -189,6 +191,7 @@ router.get('/me', authMiddleware, async (req, res, next) => {
         email: user.email,
         telefono: user.telefono,
         fotoPerfil: user.foto_perfil_url,
+        rol: user.rol,
         fechaRegistro: user.fecha_registro,
         suscripcion: suscripcion.rows[0] || null
       }

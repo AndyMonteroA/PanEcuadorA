@@ -18,10 +18,11 @@ const authMiddleware = (req, res, next) => {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Agregar datos del usuario al request
+    // Agregar datos del usuario al request (incluye rol)
     req.user = {
       id: decoded.id,
-      email: decoded.email
+      email: decoded.email,
+      rol: decoded.rol || 'cliente'
     };
 
     next();
@@ -48,7 +49,7 @@ const optionalAuth = (req, res, next) => {
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = { id: decoded.id, email: decoded.email };
+      req.user = { id: decoded.id, email: decoded.email, rol: decoded.rol || 'cliente' };
     }
   } catch (error) {
     // Token inválido, pero no bloqueamos
@@ -56,4 +57,18 @@ const optionalAuth = (req, res, next) => {
   next();
 };
 
-module.exports = { authMiddleware, optionalAuth };
+/**
+ * Middleware de administrador: verifica que el usuario sea admin
+ * Debe usarse DESPUÉS de authMiddleware
+ */
+const adminOnly = (req, res, next) => {
+  if (!req.user || req.user.rol !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      message: 'Acceso denegado. Se requieren permisos de administrador.'
+    });
+  }
+  next();
+};
+
+module.exports = { authMiddleware, optionalAuth, adminOnly };

@@ -1,5 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
@@ -17,36 +17,77 @@ import Profile from './pages/Profile';
 import Favorites from './pages/Favorites';
 import Notifications from './pages/Notifications';
 
+// Admin Pages
+import AdminLayout from './pages/admin/AdminLayout';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminProducts from './pages/admin/AdminProducts';
+import AdminOrders from './pages/admin/AdminOrders';
+import AdminCategories from './pages/admin/AdminCategories';
+import AdminUsers from './pages/admin/AdminUsers';
+
 import './App.css';
+
+// Componente para proteger rutas admin
+function AdminRoute({ children }) {
+  const { isAdmin, isAuthenticated, loading } = useAuth();
+  if (loading) return null;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAdmin) return <Navigate to="/" replace />;
+  return children;
+}
 
 function App() {
   return (
     <Router>
       <AuthProvider>
         <CartProvider>
-          <div className="app">
-            <Navbar />
-            <main className="main-content">
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/registro" element={<Register />} />
-                <Route path="/catalogo" element={<Catalogo />} />
-                <Route path="/producto/:id" element={<ProductDetail />} />
-                <Route path="/carrito" element={<Cart />} />
-                <Route path="/checkout" element={<Checkout />} />
-                <Route path="/pedidos" element={<Orders />} />
-                <Route path="/panpass" element={<PanPass />} />
-                <Route path="/perfil" element={<Profile />} />
-                <Route path="/favoritos" element={<Favorites />} />
-                <Route path="/notificaciones" element={<Notifications />} />
-                
-                {/* 404 */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </main>
-            <Footer />
-          </div>
+          <Routes>
+            {/* Rutas del Admin — sin Navbar/Footer */}
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <AdminLayout />
+                </AdminRoute>
+              }
+            >
+              <Route index element={<AdminDashboard />} />
+              <Route path="productos" element={<AdminProducts />} />
+              <Route path="pedidos" element={<AdminOrders />} />
+              <Route path="categorias" element={<AdminCategories />} />
+              <Route path="usuarios" element={<AdminUsers />} />
+            </Route>
+
+            {/* Rutas del cliente — con Navbar/Footer */}
+            <Route
+              path="*"
+              element={
+                <div className="app">
+                  <Navbar />
+                  <main className="main-content">
+                    <Routes>
+                      <Route path="/" element={<Home />} />
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/registro" element={<Register />} />
+                      <Route path="/catalogo" element={<Catalogo />} />
+                      <Route path="/producto/:id" element={<ProductDetail />} />
+                      <Route path="/carrito" element={<Cart />} />
+                      <Route path="/checkout" element={<Checkout />} />
+                      <Route path="/pedidos" element={<Orders />} />
+                      <Route path="/panpass" element={<PanPass />} />
+                      <Route path="/perfil" element={<Profile />} />
+                      <Route path="/favoritos" element={<Favorites />} />
+                      <Route path="/notificaciones" element={<Notifications />} />
+                      
+                      {/* 404 */}
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </main>
+                  <Footer />
+                </div>
+              }
+            />
+          </Routes>
         </CartProvider>
       </AuthProvider>
     </Router>
