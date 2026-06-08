@@ -153,9 +153,10 @@ router.patch('/tasks/:id_detalle/status', async (req, res, next) => {
 
     // Por defecto: tipo === 'pedido'
     const check = await client.query(`
-      SELECT dp.*, p.id_productor, dp.id_pedido
+      SELECT dp.*, p.id_productor, dp.id_pedido, pe.id_usuario, p.nombre AS producto_nombre
       FROM detalle_pedido dp
       JOIN productos p ON dp.id_producto = p.id_producto
+      JOIN pedidos pe ON dp.id_pedido = pe.id_pedido
       WHERE dp.id_detalle = $1
     `, [detailId]);
 
@@ -171,6 +172,24 @@ router.patch('/tasks/:id_detalle/status', async (req, res, next) => {
     await client.query(`
       UPDATE detalle_pedido SET estado = $1 WHERE id_detalle = $2
     `, [estado, detailId]);
+
+    // Crear notificación para el cliente
+    const taskInfo = check.rows[0];
+    if (taskInfo && taskInfo.id_usuario) {
+      let userMsg = '';
+      if (estado === 'preparando') {
+        userMsg = `Tu producto "${taskInfo.producto_nombre}" del Pedido #${orderId} ya está en preparación/horno. 🔥`;
+      } else if (estado === 'completado') {
+        userMsg = `¡Tu producto "${taskInfo.producto_nombre}" del Pedido #${orderId} ha sido horneado y está listo! 🥖`;
+      }
+
+      if (userMsg) {
+        await client.query(`
+          INSERT INTO notificaciones (id_usuario, tipo, mensaje)
+          VALUES ($1, 'pedido', $2)
+        `, [taskInfo.id_usuario, userMsg]);
+      }
+    }
 
     // Si el estado pasa a "preparando", actualizamos el pedido general a "preparando"
     if (estado === 'preparando') {

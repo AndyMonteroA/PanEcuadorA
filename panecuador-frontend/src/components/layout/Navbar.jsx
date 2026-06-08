@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { useNotifications } from '../../context/NotificationContext';
 import { FiShoppingCart, FiUser, FiSearch, FiMenu, FiX, FiBell, FiHeart, FiPackage, FiLogOut } from 'react-icons/fi';
 import logoImg from '../../assets/logo.png';
 import { FaBreadSlice, FaBirthdayCake, FaCookie, FaIceCream, FaSeedling, FaGift, FaStar } from 'react-icons/fa';
@@ -11,6 +12,7 @@ import './Navbar.css';
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
   const { itemCount } = useCart();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -127,8 +129,11 @@ export default function Navbar() {
         <div className="navbar-actions">
           {isAuthenticated ? (
             <>
-              <Link to="/notificaciones" className="nav-action" title="Notificaciones">
+              <Link to="/notificaciones" className="nav-action bell-action" title="Notificaciones">
                 <FiBell size={22} />
+                {unreadCount > 0 && (
+                  <span className="notification-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                )}
               </Link>
 
               <Link to="/favoritos" className="nav-action" title="Favoritos">
