@@ -3,13 +3,33 @@ import { useAuth } from '../../context/AuthContext';
 import { FiGrid, FiLogOut, FiArrowLeft, FiClock, FiShoppingBag } from 'react-icons/fi';
 import '../admin/Admin.css';
 
+const PARTICLES = ['🍳', '🥖', '🍞'];
+
 export default function WorkerLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   return (
     <div className="admin-layout">
-      <aside className="admin-sidebar" style={{background:'linear-gradient(180deg, #121824 0%, #0a0d16 100%)'}}>
+      {/* Background Particles */}
+      <div className="admin-bg-particles">
+        {PARTICLES.map((emoji, i) => (
+          <span
+            key={i}
+            className="particle"
+            style={{
+              left: `${20 + i * 25}%`,
+              top: `${25 + (i % 2) * 30}%`,
+              animationDelay: `${i * 4}s`,
+              animationDuration: `${14 + i * 2}s`,
+            }}
+          >
+            {emoji}
+          </span>
+        ))}
+      </div>
+
+      <aside className="admin-sidebar">
         <div className="admin-sidebar-header">
           <h2>🍳 Operaciones</h2>
           <span>Portal de Cocina</span>
@@ -39,7 +59,7 @@ export default function WorkerLayout() {
           <h1>Cocina & Horno PanEcuador</h1>
           <div className="admin-topbar-right">
             <span>{user?.nombre} {user?.apellido}</span>
-            <span className="admin-badge" style={{background:'#3b82f6',color:'#fff'}}>Operario</span>
+            <span className="admin-badge" style={{background:'rgba(96,165,250,0.12)',color:'#60a5fa'}}>Operario</span>
           </div>
         </header>
         <div className="admin-content">

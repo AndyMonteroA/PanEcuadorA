@@ -3,6 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { FiGrid, FiBox, FiShoppingBag, FiTag, FiUsers, FiLogOut, FiArrowLeft, FiTruck, FiClock, FiPercent, FiRotateCw, FiCalendar, FiSettings } from 'react-icons/fi';
 import './Admin.css';
 
+const PARTICLES = ['🍞', '🥐', '🥖', '🧁', '🎂', '🍰'];
+
 export default function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -14,6 +16,24 @@ export default function AdminLayout() {
 
   return (
     <div className="admin-layout">
+      {/* Background Particles */}
+      <div className="admin-bg-particles">
+        {PARTICLES.map((emoji, i) => (
+          <span
+            key={i}
+            className="particle"
+            style={{
+              left: `${10 + i * 15}%`,
+              top: `${15 + (i % 3) * 25}%`,
+              animationDelay: `${i * 2}s`,
+              animationDuration: `${10 + i * 2}s`,
+            }}
+          >
+            {emoji}
+          </span>
+        ))}
+      </div>
+
       <aside className="admin-sidebar">
         <div className="admin-sidebar-header">
           <h2>🍞 PanEcuador</h2>
@@ -52,7 +72,7 @@ export default function AdminLayout() {
             <FiUsers /> Usuarios
           </NavLink>
 
-          <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '8px 0' }} />
+          <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent, rgba(196,127,59,0.15), transparent)', margin: '8px 0' }} />
 
           <NavLink to="/admin/configuracion" className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}>
             <FiSettings /> Configurar Sitio

@@ -3,13 +3,33 @@ import { useAuth } from '../../context/AuthContext';
 import { FiGrid, FiBox, FiShoppingBag, FiUsers, FiLogOut, FiArrowLeft, FiClock } from 'react-icons/fi';
 import '../admin/Admin.css';
 
+const PARTICLES = ['🥐', '🍞', '🧁', '🥖'];
+
 export default function ProducerLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   return (
     <div className="admin-layout">
-      <aside className="admin-sidebar" style={{background:'linear-gradient(180deg, #1a1512 0%, #0f0d0b 100%)'}}>
+      {/* Background Particles */}
+      <div className="admin-bg-particles">
+        {PARTICLES.map((emoji, i) => (
+          <span
+            key={i}
+            className="particle"
+            style={{
+              left: `${15 + i * 20}%`,
+              top: `${20 + (i % 2) * 30}%`,
+              animationDelay: `${i * 3}s`,
+              animationDuration: `${12 + i * 2}s`,
+            }}
+          >
+            {emoji}
+          </span>
+        ))}
+      </div>
+
+      <aside className="admin-sidebar">
         <div className="admin-sidebar-header">
           <h2>🏪 Mi Negocio</h2>
           <span>Panel de Productor</span>
@@ -48,7 +68,7 @@ export default function ProducerLayout() {
           <h1>Panel de Productor</h1>
           <div className="admin-topbar-right">
             <span>{user?.nombre} {user?.apellido}</span>
-            <span className="admin-badge" style={{background:'#c47f3b',color:'#fff'}}>Productor</span>
+            <span className="admin-badge" style={{background:'rgba(196,127,59,0.15)',color:'#C47F3B'}}>Productor</span>
           </div>
         </header>
         <div className="admin-content">
