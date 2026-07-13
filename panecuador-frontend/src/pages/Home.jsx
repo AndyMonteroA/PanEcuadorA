@@ -72,9 +72,28 @@ export default function Home() {
           </div>
           <div className="hero-visual">
             <div className="hero-card-stack">
-              <div className="hero-float-card card-1">🥐<span>Pan de Yema</span><small>$0.35</small></div>
-              <div className="hero-float-card card-2">🎂<span>Tres Leches</span><small>$12.50</small></div>
-              <div className="hero-float-card card-3">🥖<span>Pan de Agua</span><small>$0.25</small></div>
+              {featuredProducts.slice(0, 3).map((p, i) => (
+                <Link to={`/producto/${p.id_producto}`} key={p.id_producto} className={`hero-float-card card-${i + 1}`}>
+                  <div className="hero-card-img">
+                    {p.imagen_principal ? (
+                      <img src={p.imagen_principal} alt={p.nombre} />
+                    ) : (
+                      <span className="hero-card-emoji">
+                        {p.id_categoria <= 1 ? '🥖' : p.id_categoria === 2 ? '🎂' : '🍪'}
+                      </span>
+                    )}
+                  </div>
+                  <span>{p.nombre}</span>
+                  <small>${parseFloat(p.precio).toFixed(2)}</small>
+                </Link>
+              ))}
+              {featuredProducts.length === 0 && (
+                <>
+                  <div className="hero-float-card card-1"><div className="hero-card-emoji">🥐</div><span>Pan de Yema</span><small>$0.35</small></div>
+                  <div className="hero-float-card card-2"><div className="hero-card-emoji">🎂</div><span>Tres Leches</span><small>$12.50</small></div>
+                  <div className="hero-float-card card-3"><div className="hero-card-emoji">🥖</div><span>Pan de Agua</span><small>$0.25</small></div>
+                </>
+              )}
             </div>
           </div>
         </div>
