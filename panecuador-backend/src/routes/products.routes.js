@@ -365,6 +365,51 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
 });
 
 /**
+ * GET /api/products/:id/similar
+ * Productos similares (misma categoría, excluyendo el actual)
+ */
+router.get('/:id/similar', async (req, res, next) => {
+  try {
+    // Primero obtener la categoría del producto actual
+    const prod = await pool.query(
+      'SELECT id_categoria FROM productos WHERE id_producto = $1',
+      [req.params.id]
+    );
+    if (prod.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Producto no encontrado.' });
+    }
+
+    const catId = prod.rows[0].id_categoria;
+
+    const result = await pool.query(`
+      SELECT p.*,
+             c.nombre AS categoria_nombre,
+             pr.nombre_negocio AS productor_nombre,
+             COALESCE(AVG(r.calificacion), 0) AS calificacion_promedio,
+             COUNT(DISTINCT r.id_resena) AS total_resenas,
+             (SELECT url_archivo FROM galeria_producto gp
+              WHERE gp.id_producto = p.id_producto AND gp.tipo = 'foto'
+              ORDER BY gp.orden LIMIT 1) AS imagen_principal
+      FROM productos p
+      LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+      LEFT JOIN productores pr ON p.id_productor = pr.id_productor
+      LEFT JOIN reseñas r ON p.id_producto = r.id_producto
+      WHERE p.id_categoria = $1
+        AND p.id_producto != $2
+        AND p.disponible = TRUE
+        AND p.stock > 0
+      GROUP BY p.id_producto, c.nombre, pr.nombre_negocio
+      ORDER BY calificacion_promedio DESC, RANDOM()
+      LIMIT 4
+    `, [catId, req.params.id]);
+
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/products/category/:id
  * Productos por categoría
  */
