@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiShoppingCart, FiHeart, FiClock, FiStar } from 'react-icons/fi';
+import { FiShoppingCart, FiHeart, FiStar } from 'react-icons/fi';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { reviewsAPI } from '../../services/api';
@@ -62,17 +62,11 @@ export default function ProductCard({ product, isFavorite: initialFav = false })
           )}
         </div>
 
-        {/* Badges */}
         <div className="product-badges">
           {isNew && <span className="badge badge-new">✨ Nuevo</span>}
-          {product.vida_util_dias && (
-            <span className="badge badge-warning">
-              <FiClock size={12} /> {product.vida_util_dias}d fresco
-            </span>
-          )}
           {!product.disponible && <span className="badge badge-error">Agotado</span>}
           {isLowStock && product.disponible && (
-            <span className="badge badge-stock-low">🔥 Últimas {product.stock}</span>
+            <span className="badge badge-stock-low">🔥 ¡Pocas unidades!</span>
           )}
         </div>
 
@@ -124,12 +118,7 @@ export default function ProductCard({ product, isFavorite: initialFav = false })
           )}
         </div>
 
-        {/* Preparation time */}
-        <div className="product-meta">
-          <span className="prep-time">
-            <FiClock size={13} /> {product.tiempo_elaboracion_min} min
-          </span>
-        </div>
+
 
         {/* Price */}
         <div className="product-price-row">

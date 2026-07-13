@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { FiShoppingCart, FiHeart, FiStar, FiMinus, FiPlus, FiChevronLeft, FiPackage, FiAlertCircle, FiX, FiZoomIn, FiChevronRight } from 'react-icons/fi';
+import { FiShoppingCart, FiHeart, FiStar, FiMinus, FiPlus, FiChevronLeft, FiPackage, FiX, FiZoomIn, FiChevronRight, FiCheck } from 'react-icons/fi';
 import { productsAPI, reviewsAPI } from '../services/api';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -235,23 +235,18 @@ export default function ProductDetail() {
               <p>{product.descripcion}</p>
             </div>
 
-            {/* Product details cards — only consumer-relevant info */}
-            <div className="pd-details-grid">
-              <div className="pd-detail-card">
-                <FiAlertCircle size={20} />
-                <div>
-                  <strong>{product.vida_util_dias} días</strong>
-                  <span>Vida útil</span>
+            {/* Product details — consumer-relevant only */}
+            {product.peso_gramos && (
+              <div className="pd-details-grid">
+                <div className="pd-detail-card">
+                  <FiPackage size={20} />
+                  <div>
+                    <strong>{product.peso_gramos}g</strong>
+                    <span>Peso neto</span>
+                  </div>
                 </div>
               </div>
-              <div className="pd-detail-card">
-                <FiPackage size={20} />
-                <div>
-                  <strong>{product.num_ingredientes}</strong>
-                  <span>Ingredientes</span>
-                </div>
-              </div>
-            </div>
+            )}
 
             {/* Ingredients */}
             {product.ingredientes && (
@@ -301,12 +296,14 @@ export default function ProductDetail() {
               </div>
             )}
 
-            {/* Stock info — without estimation time */}
+            {/* Stock info — Amazon style */}
             <div className="pd-stock-info">
-              {product.stock > 0 ? (
-                <span className="badge badge-success">✅ {product.stock} en stock</span>
+              {product.stock > 5 ? (
+                <span className="badge badge-success"><FiCheck size={14} /> Disponible</span>
+              ) : product.stock > 0 ? (
+                <span className="badge badge-warning">🔥 ¡Pocas unidades disponibles!</span>
               ) : (
-                <span className="badge badge-error">❌ Agotado</span>
+                <span className="badge badge-error">Agotado</span>
               )}
             </div>
           </div>
