@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
+const { sendOrderConfirmationEmail } = require('../services/emailService');
 
 /**
  * POST /api/orders
@@ -218,6 +219,20 @@ router.post('/', authMiddleware, async (req, res, next) => {
     `, [userId, `Tu pedido #${pedido.id_pedido} ha sido recibido. Tiempo estimado de elaboración: ${tiempoEstimadoTotal} minutos.`]);
 
     await client.query('COMMIT');
+
+    // Enviar email de confirmación (no bloquea la respuesta)
+    try {
+      const userResult = await pool.query(
+        'SELECT nombre, email FROM usuarios WHERE id_usuario = $1',
+        [userId]
+      );
+      if (userResult.rows.length > 0) {
+        const { nombre, email } = userResult.rows[0];
+        sendOrderConfirmationEmail(email, nombre, pedido, items);
+      }
+    } catch (emailErr) {
+      console.error('Error enviando email de confirmación:', emailErr);
+    }
 
     res.status(201).json({
       success: true,
