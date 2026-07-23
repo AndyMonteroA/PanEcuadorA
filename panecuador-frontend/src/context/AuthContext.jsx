@@ -45,12 +45,22 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const loginWithGoogle = async (credential) => {
+    const res = await authAPI.googleLogin(credential);
+    const { user: userData, token } = res.data.data;
+    localStorage.setItem('panecuador_token', token);
+    localStorage.setItem('panecuador_user', JSON.stringify(userData));
+    setUser(userData);
+    return userData;
+  };
+
   const value = {
     user,
     loading,
     login,
     register,
     logout,
+    loginWithGoogle,
     isAuthenticated: !!user,
     isAdmin: user?.rol === 'admin',
     isProducer: user?.rol === 'productor',

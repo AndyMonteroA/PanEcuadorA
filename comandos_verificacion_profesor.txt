@@ -1,0 +1,385 @@
+================================================================================
+COMANDOS DE VERIFICACIÓN PARA LA REVISIÓN DEL PROFESOR
+PROYECTO PANECUADOR — VPS UBUNTU 24.04 LTS
+================================================================================
+
+Instrucciones: Cuando el profesor pida "muéstrame tal cosa", ejecuta el
+comando correspondiente. Están organizados por categoría para que los
+encuentres rápido.
+
+================================================================================
+1. SISTEMA OPERATIVO Y CONFIGURACIÓN GENERAL
+================================================================================
+
+# Ver sistema operativo y versión
+lsb_release -a
+
+# Ver hostname del servidor
+hostnamectl
+
+# Ver zona horaria configurada
+timedatectl
+
+# Ver IP del servidor y configuración de red
+ip addr
+
+# Ver usuario actual
+whoami
+
+================================================================================
+2. USUARIOS Y ROLES DE LINUX (Gestión de usuarios)
+================================================================================
+
+# --- COMANDOS PARA MOSTRAR LOS USUARIOS ---
+
+# 1. Comando limpio para listar todos los usuarios del sistema (reales y de servicio relevantes)
+awk -F':' '$3>=1000 || $1=="panecuador" || $1=="www-data" || $1=="postgres" {print "Usuario: "$1" \t(UID: "$3", Shell: "$7")"}' /etc/passwd
+
+# 2. Ver detalles específicos de los usuarios del proyecto
+id deploy      # Usuario de administración (debe estar en sudo y webapps)
+id panecuador  # Usuario de servicio (debe estar en webapps, no en sudo)
+id www-data    # Usuario de Nginx (debe estar en webapps)
+
+# 3. Ver que panecuador NO puede hacer login SSH (su shell es nologin o false)
+getent passwd panecuador
+
+# 4. Ver que deploy SÍ tiene shell para conectarse
+getent passwd deploy
+
+# 5. Ver qué usuarios pertenecen al grupo compartido
+getent group webapps
+
+# 6. Probar que deploy tiene privilegios de administrador (sudo)
+su - deploy -c "sudo -S whoami" <<< "PanEcuador2026!"
+
+# --- EXPLICACIÓN DE CADA USUARIO (Para responderle al profesor) ---
+
+# 1. root
+#    - ¿Qué es?: Es el superusuario administrador absoluto del sistema operativo.
+#    - ¿Qué puede hacer?: Todo. Tiene control total, puede modificar cualquier archivo y servicio.
+#    - ¿Por qué no se usa para correr la app?: Por SEGURIDAD. Si el servidor de aplicaciones
+#      corriera como root y fuera vulnerado, el atacante obtendría acceso total (root) al VPS.
+
+# 2. deploy
+#    - ¿Qué es?: El usuario de administración y despliegue (usuario humano administrador).
+#    - ¿Qué puede hacer?: Tiene shell (/bin/bash), puede conectarse por SSH, pertenece al grupo
+#      'sudo' (lo que le permite ejecutar comandos como administrador con contraseña) y es el
+#      dueño de los archivos del proyecto (/var/www/panecuador).
+#    - ¿Por qué existe?: Para no usar root directamente. Permite realizar mantenimiento y subir código de forma segura.
+
+# 3. panecuador
+#    - ¿Qué es?: Un usuario de sistema/servicio creado específicamente para correr la app Node.js (con PM2).
+#    - ¿Qué puede hacer?: Extremadamente limitado. Su shell es /usr/sbin/nologin (bloqueado para login SSH),
+#      no tiene privilegios de sudo, y solo tiene permisos de lectura sobre la app y de lectura/escritura
+#      en la carpeta de subida de imágenes (uploads/).
+#    - ¿Por qué existe?: Principio de Privilegio Mínimo. Si la app web es vulnerada por un hacker,
+#      el atacante queda atrapado con este usuario limitado y no puede comprometer el resto del sistema.
+
+# 4. www-data
+#    - ¿Qué es?: El usuario por defecto que utiliza el servidor web Nginx.
+#    - ¿Qué puede hacer?: Leer los archivos estáticos del frontend (/var/www/panecuador/panecuador-frontend/dist)
+#      y actuar como Proxy Inverso para pasar peticiones a Node.js en el puerto 5000.
+#    - ¿Por qué existe?: Es la cuenta estándar para servicios web en Ubuntu, permitiendo aislar el tráfico HTTP/HTTPS.
+
+================================================================================
+3. FIREWALL (UFW)
+================================================================================
+
+# Ver estado del firewall y reglas activas
+sudo ufw status verbose
+
+# Ver reglas numeradas (para referencia)
+sudo ufw status numbered
+
+# Resultado esperado:
+# Status: active
+# Default: deny (incoming)
+# 22/tcp  ALLOW  (SSH)
+# 80/tcp  ALLOW  (HTTP)
+# 443/tcp ALLOW  (HTTPS)
+# NOTA: Puerto 5000 y 5432 NO están abiertos (protegidos)
+
+================================================================================
+4. PUERTOS EN ESCUCHA (qué servicios están corriendo)
+================================================================================
+
+# Ver TODOS los puertos que están escuchando
+ss -tulpen
+
+# Ver solo puertos TCP en escucha (más limpio)
+ss -tlnp
+
+# Filtrar solo los servicios importantes
+ss -tlnp | grep -E "22|80|443|5000|5432"
+
+# Resultado esperado:
+# 0.0.0.0:22     sshd       ← SSH (público, protegido por Fail2Ban)
+# 0.0.0.0:80     nginx      ← HTTP (redirige a HTTPS)
+# 0.0.0.0:443    nginx      ← HTTPS (público, con SSL)
+# 127.0.0.1:5432 postgres   ← DBMS (SOLO LOCAL — seguro)
+# *:5000         node       ← Backend (protegido por UFW, no accesible desde fuera)
+
+================================================================================
+5. SERVIDOR DE APLICACIONES (Node.js + PM2)
+================================================================================
+
+# Ver versión de Node.js
+node -v
+
+# Ver versión de npm
+npm -v
+
+# Ver estado de PM2 y los procesos
+su -s /bin/bash panecuador -c "pm2 status"
+
+# Ver con qué USUARIO corre la aplicación (debe ser panecuador, NO root)
+ps aux | grep "node /var/www" | grep -v grep
+
+# Ver logs del backend en tiempo real
+su -s /bin/bash panecuador -c "pm2 logs --lines 20"
+
+# Ver que PM2 tiene servicio systemd para arranque automático
+systemctl status pm2-panecuador
+
+# Probar que la API responde correctamente
+curl -s http://localhost:5000/api/health | python3 -m json.tool
+
+# Ver las variables de entorno del backend (sin mostrar contraseñas)
+cat /var/www/panecuador/panecuador-backend/.env | grep -v PASSWORD | grep -v SECRET
+
+# Ver el archivo de configuración de conexión a la BD
+cat /var/www/panecuador/panecuador-backend/src/config/db.js
+
+# Ver el punto de entrada de la aplicación (app.js)
+head -50 /var/www/panecuador/panecuador-backend/src/app.js
+
+# Ver las rutas de la API disponibles
+grep -r "app.use('/api" /var/www/panecuador/panecuador-backend/src/app.js
+
+================================================================================
+6. SERVIDOR WEB (Nginx)
+================================================================================
+
+# Ver estado de Nginx
+systemctl status nginx
+
+# Verificar configuración de Nginx (sintaxis)
+nginx -t
+
+# Ver la configuración del sitio PanEcuador
+cat /etc/nginx/sites-enabled/panecuador
+
+# Ver que la versión de Nginx está oculta (seguridad)
+curl -sI https://panecuador.online | grep "Server"
+# Debe decir "Server: nginx" SIN número de versión
+
+# Ver la configuración de seguridad
+cat /etc/nginx/conf.d/security.conf
+
+# Probar que Nginx responde en HTTPS
+curl -sI https://panecuador.online | head -5
+
+# Probar la redirección HTTP → HTTPS
+curl -sI http://panecuador.online | head -5
+
+================================================================================
+7. DBMS — POSTGRESQL (Configuración del motor de BD)
+================================================================================
+
+# Ver estado del servicio PostgreSQL
+systemctl status postgresql
+
+# Ver versión de PostgreSQL
+sudo -iu postgres psql -c "SELECT version();"
+
+# Ver que PostgreSQL SOLO escucha en localhost (seguridad)
+ss -tlnp | grep 5432
+# DEBE decir 127.0.0.1:5432, NO 0.0.0.0:5432
+
+# Ver max_connections configurado
+sudo -iu postgres psql -c "SHOW max_connections;"
+
+# Ver el puerto configurado
+sudo -iu postgres psql -c "SHOW port;"
+
+# Ver dónde escucha PostgreSQL
+sudo -iu postgres psql -c "SHOW listen_addresses;"
+
+# Ver la configuración de data directory
+sudo -iu postgres psql -c "SHOW data_directory;"
+
+================================================================================
+8. DBMS — ROLES Y PRIVILEGIOS (Usuarios de la BD)
+================================================================================
+
+# --- COMANDOS PARA MOSTRAR LOS ROLES ---
+
+# 1. Ver TODOS los roles/usuarios de PostgreSQL con sus atributos y descripción
+sudo -iu postgres psql -c "\du"
+
+# --- EXPLICACIÓN DE CADA ROL/USUARIO DE BASE DE DATOS ---
+
+# 1. postgres
+#    - ¿Qué es?: El superusuario administrador del motor de base de datos PostgreSQL.
+#    - ¿Qué puede hacer?: Control absoluto sobre PostgreSQL. Crear/borrar bases de datos, crear roles,
+#      modificar parámetros del motor y ver todas las tablas.
+#      La aplicación jamás debe conectarse con este rol.
+
+# 2. admin_pan
+#    - ¿Qué es?: El rol que utiliza la aplicación Node.js/Backend para comunicarse con la base de datos.
+#    - ¿Qué puede hacer?: Permisos DML (SELECT, INSERT, UPDATE, DELETE) en todas las tablas del esquema público.
+#      NO puede hacer DDL (como DROP TABLE, ALTER TABLE) ni tiene permisos de superusuario.
+#    - ¿Por qué existe?: Para evitar que una vulnerabilidad en la app (como una inyección SQL) sea usada
+#      para borrar tablas o destruir la base de datos.
+
+# 3. readonly_pan
+#    - ¿Qué es?: Un rol de solo lectura.
+#    - ¿Qué puede hacer?: Únicamente consultas (SELECT) sobre las tablas. No puede modificar ni insertar datos.
+#    - ¿Por qué existe?: Sirve para la generación de reportes externos, auditorías, o para que el script
+#      de backups extraiga los datos sin riesgo de modificarlos.
+
+# Ver los privilegios de la base de datos panaderia_db
+sudo -iu postgres psql -c "\l panaderia_db"
+
+# Ver los permisos de las tablas (quién puede hacer qué)
+sudo -iu postgres psql -d panaderia_db -c "\dp" | head -30
+
+# Ver las tablas que existen en la BD
+sudo -iu postgres psql -d panaderia_db -c "\dt"
+
+# Contar cuántas tablas hay
+sudo -iu postgres psql -d panaderia_db -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';"
+
+# Probar conexión con admin_pan (usuario de la app)
+psql -h localhost -U admin_pan -d panaderia_db -c "SELECT current_user, current_database();"
+# Contraseña: panecuador2026
+
+# Probar conexión con readonly_pan (usuario de solo lectura)
+psql -h localhost -U readonly_pan -d panaderia_db -c "SELECT count(*) FROM productos;"
+# Contraseña: ReadOnly_Pan2026
+
+# Probar que readonly_pan NO puede modificar datos
+psql -h localhost -U readonly_pan -d panaderia_db -c "DELETE FROM productos WHERE id_producto = 1;"
+# DEBE dar error: permission denied
+
+================================================================================
+9. DBMS — SEGURIDAD Y AUTENTICACIÓN
+================================================================================
+
+# Ver configuración de autenticación (pg_hba.conf)
+cat /etc/postgresql/*/main/pg_hba.conf | grep -v "^#" | grep -v "^$"
+
+# Resultado esperado:
+# local  all  postgres  peer          ← Local solo con usuario del SO
+# local  all  all       peer          ← Local solo con usuario del SO
+# host   all  all  127.0.0.1/32  scram-sha-256  ← Red local con contraseña cifrada
+# host   all  all  ::1/128       scram-sha-256  ← Red local IPv6 con contraseña cifrada
+# NO debe haber líneas con 0.0.0.0/0 (eso permitiría acceso desde cualquier IP)
+
+# Ver que logging está activado
+sudo -iu postgres psql -c "SHOW log_statement;"
+# Debe decir: ddl (registra CREATE, DROP, ALTER)
+
+sudo -iu postgres psql -c "SHOW log_connections;"
+# Debe decir: on (registra cada conexión)
+
+# Ver dónde se guardan los logs de PostgreSQL
+sudo -iu postgres psql -c "SHOW log_directory;"
+sudo -iu postgres psql -c "SHOW logging_collector;"
+
+# Ver los logs recientes de PostgreSQL
+sudo tail -20 /var/log/postgresql/postgresql-16-main.log
+
+================================================================================
+10. BACKUPS DE LA BASE DE DATOS
+================================================================================
+
+# Ver los backups existentes
+ls -lh /var/backups/postgresql/
+
+# Ver el script de backup
+cat /usr/local/bin/backup-panecuador.sh
+
+# Ver el cron programado (backup automático a las 2am)
+crontab -l
+
+# Ejecutar un backup manual ahora (para demostrar que funciona)
+/usr/local/bin/backup-panecuador.sh
+
+# Ver que se creó el nuevo backup
+ls -lh /var/backups/postgresql/
+
+# Ver el log de backups
+cat /var/log/backup-panecuador.log 2>/dev/null || echo "Aún no hay log (se crea después del primer cron)"
+
+================================================================================
+11. SEGURIDAD GENERAL
+================================================================================
+
+# Ver estado de AppArmor (equivalente a SELinux)
+sudo aa-status | head -10
+
+# Ver estado de Fail2Ban
+sudo fail2ban-client status
+
+# Ver estado del jail de SSH
+sudo fail2ban-client status sshd
+
+# Ver si hay IPs baneadas actualmente
+sudo fail2ban-client status sshd | grep "Banned"
+
+# Ver el certificado SSL (HTTPS)
+sudo certbot certificates
+
+# Probar renovación automática del certificado
+sudo certbot renew --dry-run
+
+# Ver actualizaciones automáticas
+systemctl status unattended-upgrades
+
+================================================================================
+12. PERMISOS DE ARCHIVOS DEL PROYECTO
+================================================================================
+
+# Ver dueño y permisos del directorio principal
+ls -ld /var/www/panecuador
+
+# Ver dueño y permisos de uploads (imágenes)
+ls -ld /var/www/panecuador/panecuador-backend/uploads
+
+# Ver estructura general del proyecto
+ls -la /var/www/panecuador
+
+# Ver que el .env existe (variables de entorno)
+ls -la /var/www/panecuador/panecuador-backend/.env
+
+# Ver que el build del frontend existe
+ls -la /var/www/panecuador/panecuador-frontend/dist/index.html
+
+================================================================================
+13. COMANDO RÁPIDO — VERIFICACIÓN COMPLETA EN UNA SOLA EJECUCIÓN
+================================================================================
+
+Si el profesor quiere ver TODO de un solo vistazo, ejecuta esto:
+
+echo "===============================" && echo "SISTEMA" && echo "===============================" && lsb_release -ds && hostname && timedatectl | grep "Time zone" && echo "" && echo "===============================" && echo "USUARIOS LINUX" && echo "===============================" && id deploy && id panecuador && getent group webapps && echo "" && echo "===============================" && echo "SERVICIOS" && echo "===============================" && echo "nginx: $(systemctl is-active nginx)" && echo "postgresql: $(systemctl is-active postgresql)" && echo "fail2ban: $(systemctl is-active fail2ban)" && echo "pm2: $(systemctl is-active pm2-panecuador)" && echo "" && echo "===============================" && echo "FIREWALL" && echo "===============================" && sudo ufw status | grep -E "Status|22|80|443" && echo "" && echo "===============================" && echo "PUERTOS" && echo "===============================" && ss -tlnp | grep -E "22|80|443|5000|5432" && echo "" && echo "===============================" && echo "POSTGRESQL ROLES" && echo "===============================" && sudo -iu postgres psql -t -c "\du" && echo "===============================" && echo "POSTGRESQL SEGURIDAD" && echo "===============================" && echo "log_statement:" && sudo -iu postgres psql -t -c "SHOW log_statement;" && echo "log_connections:" && sudo -iu postgres psql -t -c "SHOW log_connections;" && echo "listen_addresses:" && sudo -iu postgres psql -t -c "SHOW listen_addresses;" && echo "" && echo "===============================" && echo "BACKEND" && echo "===============================" && echo "Node.js: $(node -v)" && ps aux | grep "node /var/www" | grep -v grep | awk '{print "PM2 corre como: "$1}' && curl -s http://localhost:5000/api/health | python3 -m json.tool 2>/dev/null && echo "" && echo "===============================" && echo "NGINX" && echo "===============================" && curl -sI https://panecuador.online | grep "Server" && echo "" && echo "===============================" && echo "BACKUPS" && echo "===============================" && ls -lh /var/backups/postgresql/ && crontab -l | grep backup && echo "" && echo "===============================" && echo "PERMISOS" && echo "===============================" && ls -ld /var/www/panecuador && ls -ld /var/www/panecuador/panecuador-backend/uploads && echo "" && echo "===============================" && echo "SEGURIDAD" && echo "===============================" && echo "AppArmor: $(sudo aa-status 2>/dev/null | head -1)" && echo "Fail2Ban: $(systemctl is-active fail2ban)" && echo "SSL:" && sudo certbot certificates 2>/dev/null | grep -E "Domains|Expiry" && echo "==============================="
+
+================================================================================
+NOTAS IMPORTANTES PARA LA REVISIÓN
+================================================================================
+
+Contraseñas por si el profesor pide probar conexiones:
+- Usuario Linux deploy: PanEcuador2026!
+- PostgreSQL admin_pan: panecuador2026
+- PostgreSQL readonly_pan: ReadOnly_Pan2026
+
+Dominio del sitio: https://panecuador.online
+
+Si el profesor pregunta "¿por qué hicieron X así?":
+- Revisar la bitácora (bitacora_vps_ubuntu_panecuador.txt) donde
+  cada paso tiene explicación del "para qué sirve" y "por qué".
+- Al final de la bitácora hay 15 preguntas frecuentes con respuestas.
+
+================================================================================
+FIN DEL DOCUMENTO
+================================================================================

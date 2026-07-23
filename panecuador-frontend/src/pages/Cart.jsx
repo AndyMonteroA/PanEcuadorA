@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiTrash2, FiMinus, FiPlus, FiShoppingCart, FiClock, FiArrowRight, FiAlertTriangle } from 'react-icons/fi';
+import { FiTrash2, FiMinus, FiPlus, FiShoppingCart, FiArrowRight, FiAlertTriangle } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import './Cart.css';
@@ -53,13 +53,6 @@ export default function Cart() {
     );
   }
 
-  const formatTime = (min) => {
-    if (min < 60) return `${min} min`;
-    const hours = Math.floor(min / 60);
-    const mins = min % 60;
-    return `${hours}h ${mins > 0 ? mins + 'min' : ''}`;
-  };
-
   return (
     <div className="cart-page">
       <div className="container">
@@ -74,51 +67,7 @@ export default function Cart() {
           {/* Items */}
           <div className="cart-items">
             {items.map((item) => (
-              <div key={item.id_carrito} className="cart-item card">
-                <div className="cart-item-image">
-                  {item.imagen ? (
-                    <img src={item.imagen} alt={item.nombre} />
-                  ) : (
-                    <div className="product-placeholder" style={{ height: '100%' }}>🍞</div>
-                  )}
-                </div>
-
-                <div className="cart-item-info">
-                  <Link to={`/producto/${item.id_producto}`} className="cart-item-name">
-                    {item.nombre}
-                  </Link>
-                  {item.productor_nombre && (
-                    <span className="cart-item-producer">por {item.productor_nombre}</span>
-                  )}
-                  <div className="cart-item-meta">
-                    <span className="badge badge-primary">
-                      <FiClock size={12} /> {item.tiempo_elaboracion_min * item.cantidad} min
-                    </span>
-                  </div>
-                </div>
-
-                <div className="cart-item-quantity">
-                  <div className="quantity-selector">
-                    <button onClick={() => updateQuantity(item.id_carrito, item.cantidad - 1)}
-                      disabled={item.cantidad <= 1}>
-                      <FiMinus />
-                    </button>
-                    <span>{item.cantidad}</span>
-                    <button onClick={() => updateQuantity(item.id_carrito, item.cantidad + 1)}>
-                      <FiPlus />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="cart-item-price">
-                  <span className="item-total">${parseFloat(item.subtotal).toFixed(2)}</span>
-                  <span className="item-unit">${parseFloat(item.precio).toFixed(2)} c/u</span>
-                </div>
-
-                <button className="cart-item-remove" onClick={() => removeItem(item.id_carrito)}>
-                  <FiTrash2 />
-                </button>
-              </div>
+              <CartItem key={item.id_carrito} item={item} updateQuantity={updateQuantity} removeItem={removeItem} />
             ))}
           </div>
 
@@ -129,11 +78,6 @@ export default function Cart() {
             <div className="summary-row">
               <span>Productos ({resumen.totalItems})</span>
               <span>${parseFloat(resumen.subtotal).toFixed(2)}</span>
-            </div>
-
-            <div className="summary-row">
-              <span><FiClock size={14} /> Tiempo elaboración</span>
-              <span>{formatTime(resumen.tiempoElaboracionEstimado)}</span>
             </div>
 
             {resumen.superaLimite && (
@@ -164,6 +108,122 @@ export default function Cart() {
           </aside>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * CartItem — con input de cantidad editable
+ */
+function CartItem({ item, updateQuantity, removeItem }) {
+  const [localQty, setLocalQty] = useState(item.cantidad);
+  const [updating, setUpdating] = useState(false);
+  const debounceRef = useRef(null);
+
+  // Sync local state when item changes from API
+  useEffect(() => {
+    setLocalQty(item.cantidad);
+  }, [item.cantidad]);
+
+  const handleQtyChange = (newQty) => {
+    // Validate
+    const qty = parseInt(newQty);
+    if (isNaN(qty) || qty < 1) {
+      setLocalQty(newQty); // Allow typing, validate on blur
+      return;
+    }
+    if (qty > item.stock) {
+      setLocalQty(item.stock);
+      commitQty(item.stock);
+      return;
+    }
+    setLocalQty(qty);
+    
+    // Debounce API call
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => commitQty(qty), 500);
+  };
+
+  const commitQty = async (qty) => {
+    if (qty === item.cantidad) return;
+    setUpdating(true);
+    try {
+      await updateQuantity(item.id_carrito, qty);
+    } catch (err) {
+      setLocalQty(item.cantidad); // Revert on error
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleBlur = () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const qty = parseInt(localQty);
+    if (isNaN(qty) || qty < 1) {
+      setLocalQty(item.cantidad);
+      return;
+    }
+    const clampedQty = Math.min(qty, item.stock);
+    setLocalQty(clampedQty);
+    commitQty(clampedQty);
+  };
+
+  return (
+    <div className={`cart-item card ${updating ? 'cart-item-updating' : ''}`}>
+      <div className="cart-item-image">
+        {item.imagen ? (
+          <img src={item.imagen} alt={item.nombre} />
+        ) : (
+          <div className="product-placeholder" style={{ height: '100%' }}>🍞</div>
+        )}
+      </div>
+
+      <div className="cart-item-info">
+        <Link to={`/producto/${item.id_producto}`} className="cart-item-name">
+          {item.nombre}
+        </Link>
+        {item.productor_nombre && (
+          <span className="cart-item-producer">por {item.productor_nombre}</span>
+        )}
+      </div>
+
+      <div className="cart-item-quantity">
+        <div className="quantity-selector">
+          <button 
+            onClick={() => handleQtyChange(Math.max(1, (parseInt(localQty) || 1) - 1))}
+            disabled={localQty <= 1 || updating}
+          >
+            <FiMinus />
+          </button>
+          <input
+            type="number"
+            className="qty-input"
+            value={localQty}
+            onChange={(e) => handleQtyChange(e.target.value)}
+            onBlur={handleBlur}
+            min={1}
+            max={item.stock}
+          />
+          <button 
+            onClick={() => handleQtyChange((parseInt(localQty) || 0) + 1)}
+            disabled={(parseInt(localQty) || 0) >= item.stock || updating}
+          >
+            <FiPlus />
+          </button>
+        </div>
+        {item.stock <= 5 && (
+          <span className="qty-stock-hint">Max: {item.stock}</span>
+        )}
+      </div>
+
+      <div className="cart-item-price">
+        <span className="item-total">${(parseFloat(item.precio) * (parseInt(localQty) || 1)).toFixed(2)}</span>
+        <span className="item-unit">${parseFloat(item.precio).toFixed(2)} c/u</span>
+      </div>
+
+      <button className="cart-item-remove" onClick={() => removeItem(item.id_carrito)}>
+        <FiTrash2 />
+      </button>
     </div>
   );
 }

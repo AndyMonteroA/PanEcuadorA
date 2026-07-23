@@ -23,6 +23,11 @@
   animation: fadeIn 0.5s ease;
 }
 
+.auth-container-single {
+  grid-template-columns: 1fr;
+  max-width: 480px;
+}
+
 /* Visual panel */
 .auth-visual {
   background: linear-gradient(135deg, var(--color-secondary) 0%, #4A3728 100%);
@@ -61,13 +66,6 @@
   color: white;
   position: relative;
   z-index: 2;
-}
-
-.auth-emoji {
-  font-size: 5rem;
-  display: block;
-  margin-bottom: var(--space-lg);
-  animation: float 3s ease-in-out infinite;
 }
 
 .auth-visual-content h2 {
@@ -174,10 +172,80 @@
 .auth-link {
   color: var(--color-primary);
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .auth-link:hover {
   text-decoration: underline;
+}
+
+/* Forgot password link */
+.auth-forgot {
+  text-align: right;
+  margin-top: -4px;
+}
+
+.auth-forgot .auth-link {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+
+/* Google button container */
+.google-btn-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-sm);
+  min-height: 44px;
+}
+
+.google-btn-container > div {
+  width: 100% !important;
+}
+
+/* Divider "o inicia con email" */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin: var(--space-md) 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--bg-secondary);
+}
+
+.auth-divider span {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Success state (for forgot/reset password) */
+.auth-success-state {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.success-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  margin-bottom: var(--space-sm);
 }
 
 /* ============ RESPONSIVE ============ */
@@ -196,5 +264,23 @@
 
   .auth-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-page {
+    padding: var(--space-sm);
+  }
+
+  .auth-container {
+    border-radius: var(--radius-lg);
+  }
+
+  .auth-form-section {
+    padding: var(--space-xl) var(--space-md);
+  }
+
+  .auth-title {
+    font-size: var(--fs-xl);
   }
 }

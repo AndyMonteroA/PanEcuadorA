@@ -488,3 +488,40 @@
   font-weight: 600;
 }
 
+/* ============ RESPONSIVE ============ */
+@media (max-width: 768px) {
+  .checkout-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .checkout-summary {
+    position: static;
+  }
+
+  .checkout-section {
+    padding: var(--space-md);
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .delivery-slots {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .checkout-title {
+    font-size: var(--fs-xl);
+  }
+}
+
+@media (max-width: 480px) {
+  .delivery-slots {
+    grid-template-columns: 1fr;
+  }
+
+  .checkout-section h2 {
+    font-size: var(--fs-md);
+  }
+}
+

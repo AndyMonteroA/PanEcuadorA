@@ -1,0 +1,746 @@
+================================================================================
+PROYECTO E-COMMERCE DJANGO + POSTGRESQL + VPS ALMALINUX 9
+BITÁCORA DE LOS 25 PASOS DEL VPS + PREGUNTAS REALIZADAS POR PASO
+================================================================================
+
+Objetivo:
+Dejar el VPS AlmaLinux 9 preparado para desplegar una plataforma e-commerce tipo Amazon usando Django, PostgreSQL 15, Nginx, Gunicorn, Certbot/Let's Encrypt, Firewalld, SELinux, Fail2Ban, backups y monitoreo básico.
+
+Estado actual registrado:
+- Hostname: ecommerce-vps.
+- Sistema: AlmaLinux 9.8.
+- SSH funcionando por puerto 2222.
+- Firewalld activo.
+- Nginx activo en puerto 80.
+- PostgreSQL 15 activo.
+- Fail2Ban activo.
+- SELinux en Permissive.
+- PostgreSQL escuchando en 127.0.0.1:5440 y [::1]:5440.
+- Nginx todavía no escucha en 443 porque falta configurar SSL.
+- Usuario actual visto en última captura: root.
+- Recomendación: trabajar normalmente como deploy y usar sudo cuando sea necesario.
+
+================================================================================
+PASO 1. ENTRAR POR PRIMERA VEZ AL VPS
+================================================================================
+
+Comando:
+ssh root@IP_DEL_VPS
+
+Para qué sirve:
+Permite entrar al servidor con el usuario root para la configuración inicial.
+
+Resultado correcto:
+[root@servidor ~]#
+
+Errores comunes:
+- Permission denied: contraseña o llave incorrecta.
+- Connection timed out: IP incorrecta, VPS apagado o firewall del proveedor.
+- Connection refused: SSH no está escuchando.
+
+Recomendación:
+Root solo debe usarse para la configuración inicial. Luego debe usarse deploy.
+
+================================================================================
+PASO 2. VERIFICAR SISTEMA OPERATIVO
+================================================================================
+
+Comandos:
+cat /etc/almalinux-release
+whoami
+ip addr
+ip route
+
+Para qué sirve:
+Confirma que el VPS usa AlmaLinux 9, revisa el usuario actual y la red.
+
+Resultado correcto:
+AlmaLinux release 9.x
+
+En tu caso:
+AlmaLinux 9.8 (Olive Jaguar), correcto.
+
+================================================================================
+PASO 3. ACTUALIZAR SISTEMA
+================================================================================
+
+Comandos:
+dnf update -y
+dnf install -y epel-release
+
+Para qué sirve:
+Actualiza el sistema e instala EPEL, repositorio necesario para herramientas como Certbot y Fail2Ban.
+
+Resultado correcto:
+Complete!
+
+Errores comunes:
+- Could not resolve host: problema DNS/red.
+- Failed to download metadata: problema con repositorios.
+- No match for argument: paquete no encontrado.
+
+================================================================================
+PASO 4. CONFIGURAR HOSTNAME Y ZONA HORARIA
+================================================================================
+
+Comandos:
+hostnamectl set-hostname ecommerce-vps
+hostnamectl
+timedatectl set-timezone America/Lima
+timedatectl
+
+Para qué sirve:
+Asigna nombre al servidor y ajusta zona horaria.
+
+Resultado correcto:
+Static hostname: ecommerce-vps
+Time zone: America/Lima
+
+En tu caso:
+Hostname actual: ecommerce-vps, correcto.
+
+================================================================================
+PASO 5. CREAR USUARIOS Y ROLES LINUX
+================================================================================
+
+Usuarios recomendados:
+1. root: administrador total; solo emergencia/configuración inicial.
+2. deploy: usuario humano de administración diaria; entra por SSH; usa sudo.
+3. ecommerce: usuario de servicio; ejecuta Django/Gunicorn; no entra por SSH.
+4. nginx: usuario del servicio Nginx; no se usa manualmente.
+5. postgres: usuario del sistema para administrar PostgreSQL.
+
+Grupo recomendado:
+webapps
+
+Comandos:
+groupadd webapps
+useradd -m -s /bin/bash deploy
+passwd deploy
+usermod -aG wheel,webapps deploy
+
+useradd -r -m -d /srv/ecommerce -s /sbin/nologin ecommerce
+usermod -aG webapps ecommerce
+
+Verificación:
+id deploy
+id ecommerce
+
+Resultado correcto:
+deploy debe pertenecer a wheel y webapps.
+ecommerce debe pertenecer a webapps.
+
+================================================================================
+PASO 6. PROBAR SUDO CON DEPLOY
+================================================================================
+
+Comandos:
+su - deploy
+sudo whoami
+
+Resultado correcto:
+root
+
+Si sale:
+deploy is not in the sudoers file
+
+Solución como root:
+usermod -aG wheel deploy
+
+Luego cerrar sesión y volver a entrar.
+
+================================================================================
+PASO 7. CONFIGURAR LLAVE SSH
+================================================================================
+
+En la PC local:
+ssh-keygen -t ed25519 -C "proyecto-ecommerce-vps"
+
+Ver llave pública:
+cat ~/.ssh/id_ed25519.pub
+
+En el VPS:
+mkdir -p /home/deploy/.ssh
+nano /home/deploy/.ssh/authorized_keys
+
+Pegar la llave pública.
+
+Permisos:
+chown -R deploy:deploy /home/deploy/.ssh
+chmod 700 /home/deploy/.ssh
+chmod 600 /home/deploy/.ssh/authorized_keys
+
+Probar desde PC:
+ssh deploy@IP_DEL_VPS
+
+Resultado correcto:
+[deploy@ecommerce-vps ~]$
+
+Errores comunes:
+- Permission denied (publickey): llave incorrecta o permisos mal.
+- Sigue pidiendo contraseña: no está usando la llave.
+- Bad permissions: permisos inseguros en .ssh.
+
+================================================================================
+PASO 8. ACTIVAR Y CONFIGURAR FIREWALL
+================================================================================
+
+Comandos:
+systemctl enable --now firewalld
+systemctl status firewalld
+firewall-cmd --get-active-zones
+
+Resultado correcto:
+Active: active (running)
+
+================================================================================
+PASO 9. ABRIR PUERTOS NECESARIOS
+================================================================================
+
+Comandos:
+firewall-cmd --permanent --add-service=http
+firewall-cmd --permanent --add-service=https
+firewall-cmd --reload
+firewall-cmd --list-all
+
+Resultado esperado:
+services: http https ssh
+o similar.
+
+Más adelante se quita ssh si se cambia el puerto 22.
+
+================================================================================
+PASO 10. CAMBIAR PUERTO SSH DE 22 A 2222
+================================================================================
+
+Primero abrir el nuevo puerto:
+firewall-cmd --permanent --add-port=2222/tcp
+firewall-cmd --reload
+
+Crear configuración SSH:
+cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak.$(date +%F_%H%M)
+nano /etc/ssh/sshd_config.d/99-proyecto-ecommerce.conf
+
+Contenido recomendado:
+Port 2222
+PermitRootLogin no
+PasswordAuthentication no
+PubkeyAuthentication yes
+AllowUsers deploy
+MaxAuthTries 3
+X11Forwarding no
+ClientAliveInterval 300
+ClientAliveCountMax 2
+
+Validar:
+sshd -t
+
+Si no muestra nada, está correcto.
+
+Recargar:
+systemctl reload sshd
+
+Probar desde otra terminal:
+ssh -p 2222 deploy@IP_DEL_VPS
+
+Si entra bien, quitar puerto 22:
+firewall-cmd --permanent --remove-service=ssh
+firewall-cmd --reload
+
+================================================================================
+PASO 11. RESTRINGIR SSH POR IP PÚBLICA
+================================================================================
+
+Solo recomendado si se tiene IP pública fija.
+
+Ver IP pública desde PC:
+curl ifconfig.me
+
+Permitir solo esa IP:
+firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="TU_IP/32" port port="2222" protocol="tcp" accept'
+firewall-cmd --permanent --remove-port=2222/tcp
+firewall-cmd --reload
+
+Advertencia:
+Si tu IP cambia, puedes quedarte fuera del VPS. Si no tienes IP fija, no aplicar esta restricción.
+
+Nota sobre MAC:
+No se puede filtrar de forma real por MAC en un VPS a través de Internet, porque la MAC del cliente no llega al servidor remoto. Se controla por IP, llave SSH, firewall, Fail2Ban y desactivación de contraseñas.
+
+================================================================================
+PASO 12. VERIFICAR PUERTOS CON ss -tulpen
+================================================================================
+
+Comando:
+ss -tulpen
+
+Pregunta real del usuario:
+El usuario mostró esta salida cuando aún no había instalado Nginx ni PostgreSQL:
+udp 127.0.0.1:323 chronyd
+udp [::1]:323 chronyd
+tcp 0.0.0.0:2222 sshd
+tcp [::]:2222 sshd
+
+Respuesta:
+La salida estaba correcta. Significaba:
+- chronyd activo solo localmente para sincronización de hora.
+- SSH activo en puerto 2222.
+- No aparecían Nginx ni PostgreSQL porque aún no estaban instalados.
+
+Estado ideal en ese momento:
+Solo SSH 2222 y chronyd.
+
+Estado ideal después de instalar servicios:
+- SSH: 0.0.0.0:2222 y [::]:2222.
+- Nginx: 0.0.0.0:80 y luego 443.
+- PostgreSQL: 127.0.0.1:5432 o 5440, nunca 0.0.0.0.
+
+================================================================================
+PASO 13. INSTALAR HERRAMIENTAS BASE
+================================================================================
+
+Comando:
+dnf install -y git curl wget nano unzip tar htop policycoreutils-python-utils chrony dnf-automatic
+
+Para qué sirve:
+- git: clonar proyecto.
+- curl/wget: probar conexiones.
+- nano: editar archivos.
+- unzip/tar: descomprimir.
+- htop: monitoreo.
+- policycoreutils-python-utils: herramientas SELinux.
+- chrony: sincronización de hora.
+- dnf-automatic: actualizaciones automáticas.
+
+Activar chronyd:
+systemctl enable --now chronyd
+systemctl status chronyd
+
+Resultado correcto:
+Active: active (running)
+
+================================================================================
+PASO 14. REVISAR SELINUX
+================================================================================
+
+Comando:
+getenforce
+
+Pregunta real del usuario:
+Al ejecutar getenforce salió:
+Disabled
+
+Respuesta:
+SELinux estaba desactivado. No era fatal, pero para seguridad académica se recomendó activarlo en modo Permissive.
+
+Comandos recomendados:
+sudo cat /etc/selinux/config
+cat /proc/cmdline
+rpm -qa | grep -E 'selinux-policy|policycoreutils'
+
+Si config decía SELINUX=disabled:
+sudo cp /etc/selinux/config /etc/selinux/config.bak
+sudo sed -i 's/^SELINUX=.*/SELINUX=permissive/' /etc/selinux/config
+sudo sed -i 's/^SELINUXTYPE=.*/SELINUXTYPE=targeted/' /etc/selinux/config
+sudo touch /.autorelabel
+sudo reboot
+
+Si en /proc/cmdline aparecía selinux=0:
+sudo grubby --update-kernel=ALL --remove-args="selinux=0"
+sudo grubby --update-kernel=ALL --remove-args="enforcing=0"
+
+Después del reinicio:
+getenforce
+sestatus
+
+Resultado correcto final:
+Permissive
+
+Estado actual:
+SELinux está en Permissive, correcto por ahora.
+
+No cambiar a Enforcing todavía. Primero terminar Django + Gunicorn + Nginx + SSL.
+
+================================================================================
+PASO 15. INSTALAR NGINX
+================================================================================
+
+Comandos:
+dnf install -y nginx
+systemctl enable --now nginx
+systemctl status nginx
+nginx -t
+
+Resultado correcto:
+Active: active (running)
+syntax is ok
+test is successful
+
+Probar:
+curl -I http://localhost
+
+Resultado esperado:
+HTTP/1.1 200 OK
+o alguna respuesta HTTP. Si sale 403/404, Nginx responde; no es grave al inicio.
+
+Estado actual:
+Nginx activo en puerto 80:
+0.0.0.0:80
+[::]:80
+
+Correcto.
+
+================================================================================
+PASO 16. SEGURIDAD BÁSICA EN NGINX
+================================================================================
+
+Archivo:
+nano /etc/nginx/conf.d/security.conf
+
+Contenido:
+server_tokens off;
+
+Validar:
+nginx -t
+systemctl reload nginx
+
+Para qué sirve:
+Oculta la versión exacta de Nginx.
+
+================================================================================
+PASO 17. INSTALAR POSTGRESQL 15
+================================================================================
+
+Comandos:
+dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+dnf -qy module disable postgresql
+dnf install -y postgresql15-server postgresql15-contrib
+
+Inicializar:
+/usr/pgsql-15/bin/postgresql-15-setup initdb
+
+Activar:
+systemctl enable --now postgresql-15
+systemctl status postgresql-15
+
+Resultado correcto:
+Active: active (running)
+
+================================================================================
+PASO 18. CREAR ROL Y BASE DE DATOS POSTGRESQL
+================================================================================
+
+Comando para entrar:
+sudo -iu postgres psql
+
+Comandos SQL recomendados:
+CREATE ROLE ecommerce_user WITH LOGIN PASSWORD 'CAMBIA_ESTA_CLAVE_SEGURA';
+CREATE DATABASE ecommerce_db OWNER ecommerce_user ENCODING 'UTF8' TEMPLATE template0;
+REVOKE ALL ON DATABASE ecommerce_db FROM PUBLIC;
+GRANT CONNECT ON DATABASE ecommerce_db TO ecommerce_user;
+\c ecommerce_db
+GRANT USAGE, CREATE ON SCHEMA public TO ecommerce_user;
+ALTER SCHEMA public OWNER TO ecommerce_user;
+\q
+
+Pregunta real del usuario:
+Al pegar los comandos salió:
+CREATE ROLE
+CREATE DATABASE
+REVOKE
+GRANT
+invalid integer value "CREATE" for connection option "port"
+Previous connection kept
+
+Causa:
+El comando \c ecommerce_db se mezcló con el GRANT. \c no debe llevar punto y coma y debe ir solo en una línea.
+
+Corrección indicada:
+CTRL + C
+
+Luego dentro de PostgreSQL:
+ALTER ROLE ecommerce_user WITH PASSWORD 'CAMBIA_ESTA_CLAVE_SEGURA';
+\c ecommerce_db
+GRANT USAGE, CREATE ON SCHEMA public TO ecommerce_user;
+ALTER SCHEMA public OWNER TO ecommerce_user;
+\conninfo
+\q
+
+Luego, desde Linux, no dentro de psql:
+psql -h localhost -p PUERTO -U ecommerce_user -d ecommerce_db -c "SELECT current_database(), current_user, version();"
+
+Nota:
+En el estado actual, PostgreSQL escucha en el puerto 5440, no 5432.
+
+Prueba correcta actual:
+psql -h localhost -p 5440 -U ecommerce_user -d ecommerce_db -c "SELECT current_database(), current_user, version();"
+
+================================================================================
+PASO 19. ASEGURAR QUE POSTGRESQL NO SEA PÚBLICO
+================================================================================
+
+Comando:
+ss -ltnp | grep postgres
+
+Resultado correcto:
+127.0.0.1:5432 o 127.0.0.1:5440
+[::1]:5432 o [::1]:5440
+
+Resultado peligroso:
+0.0.0.0:5432
+0.0.0.0:5440
+
+Estado actual:
+PostgreSQL escucha en:
+127.0.0.1:5440
+[::1]:5440
+
+Correcto porque está solo local.
+
+Recomendación:
+Si se quiere usar el puerto estándar, cambiar 5440 a 5432 en:
+/var/lib/pgsql/15/data/postgresql.conf
+
+Buscar:
+port = 5440
+
+Cambiar:
+port = 5432
+
+Reiniciar:
+systemctl restart postgresql-15
+
+Si se deja en 5440, configurar Django con:
+DB_PORT=5440
+
+================================================================================
+PASO 20. CREAR ESTRUCTURA DE CARPETAS DEL PROYECTO
+================================================================================
+
+Comandos:
+mkdir -p /srv/ecommerce/app
+mkdir -p /srv/ecommerce/shared/media
+mkdir -p /srv/ecommerce/shared/staticfiles
+mkdir -p /srv/ecommerce/shared/logs
+
+Permisos:
+chown -R deploy:webapps /srv/ecommerce
+chmod -R 2750 /srv/ecommerce
+
+Permisos para carpetas escribibles por la app:
+chown -R ecommerce:webapps /srv/ecommerce/shared/media
+chown -R ecommerce:webapps /srv/ecommerce/shared/logs
+chmod -R 2770 /srv/ecommerce/shared/media
+chmod -R 2770 /srv/ecommerce/shared/logs
+
+Agregar Nginx al grupo:
+usermod -aG webapps nginx
+systemctl restart nginx
+
+Verificar:
+ls -ld /srv/ecommerce
+ls -ld /srv/ecommerce/shared/media
+id nginx
+
+================================================================================
+PASO 21. INSTALAR PYTHON
+================================================================================
+
+Pregunta real:
+¿Por qué Python 3.11 si ya existe 3.14? ¿No sería mejor Python 3.13?
+
+Respuesta:
+Para AlmaLinux 9, se recomendó usar Python 3.12 si está disponible por dnf, porque es moderno, estable y evita compilar manualmente. Python 3.11 también es seguro y estable. Python 3.13 puede servir, pero puede requerir instalación menos limpia. Python 3.14 es muy reciente para este caso académico.
+
+Comando recomendado:
+sudo dnf install -y python3.12 python3.12-pip python3.12-devel gcc
+
+Verificar:
+python3.12 --version
+pip3.12 --version
+
+Si no está disponible:
+sudo dnf install -y python3.11 python3.11-pip python3.11-devel gcc
+
+Verificar:
+python3.11 --version
+pip3.11 --version
+
+Recomendación:
+Usar Python 3.12 si dnf lo permite. Si no, usar Python 3.11 sin problema.
+
+================================================================================
+PASO 22. INSTALAR FAIL2BAN
+================================================================================
+
+Comandos:
+dnf install -y fail2ban
+
+Archivo:
+nano /etc/fail2ban/jail.local
+
+Contenido:
+[DEFAULT]
+bantime = 1h
+findtime = 10m
+maxretry = 5
+
+[sshd]
+enabled = true
+port = 2222
+backend = systemd
+
+Activar:
+systemctl enable --now fail2ban
+
+Verificar:
+fail2ban-client status
+fail2ban-client status sshd
+
+Resultado correcto:
+Jail list: sshd
+
+Estado actual:
+Fail2Ban activo.
+
+Nota de la salida actual:
+Existe una rich rule que rechaza la IP 157.245.123.148 en el puerto 2222.
+
+Revisar:
+sudo fail2ban-client status sshd
+sudo firewall-cmd --list-rich-rules
+
+Si se desea desbanear:
+sudo fail2ban-client set sshd unbanip 157.245.123.148
+
+Si se desea quitar la rich rule manualmente:
+sudo firewall-cmd --permanent --remove-rich-rule='rule family="ipv4" source address="157.245.123.148" port port="2222" protocol="tcp" reject type="icmp-port-unreachable"'
+sudo firewall-cmd --reload
+
+================================================================================
+PASO 23. ACTIVAR ACTUALIZACIONES AUTOMÁTICAS
+================================================================================
+
+Comando:
+systemctl enable --now dnf-automatic.timer
+
+Verificar:
+systemctl list-timers | grep dnf
+
+Archivo:
+nano /etc/dnf/automatic.conf
+
+Para aplicar actualizaciones automáticamente:
+apply_updates = yes
+
+Recomendación:
+En VPS académico se puede activar para parches de seguridad, pero siempre revisar después que servicios críticos sigan activos.
+
+================================================================================
+PASO 24. CHECKLIST FINAL DE SEGURIDAD DEL VPS
+================================================================================
+
+Comandos usados:
+whoami
+hostnamectl
+getenforce
+firewall-cmd --list-all
+ss -tulpen
+systemctl is-active sshd
+systemctl is-active firewalld
+systemctl is-active nginx
+systemctl is-active postgresql-15
+systemctl is-active fail2ban
+
+Salida enviada:
+- whoami: root
+- hostname: ecommerce-vps
+- AlmaLinux 9.8
+- SELinux: Permissive
+- firewall: public active
+- services: cockpit dhcpv6-client http https
+- ports: 2222/tcp
+- rich rule bloqueando IP 157.245.123.148
+- SSH: activo en 2222
+- Nginx: activo en 80
+- PostgreSQL: activo en 5440 local
+- Fail2Ban: active
+
+Diagnóstico:
+Todo está bastante bien. Ajustes recomendados:
+1. Trabajar como deploy, no como root.
+2. Quitar cockpit del firewall si no se usa.
+3. Revisar si la rich rule fue creada por Fail2Ban.
+4. Decidir si PostgreSQL queda en 5440 o se cambia a 5432.
+5. HTTPS aún no escucha en 443 porque falta Certbot.
+
+Quitar Cockpit:
+sudo firewall-cmd --permanent --remove-service=cockpit
+sudo firewall-cmd --reload
+sudo firewall-cmd --list-all
+
+Probar Nginx:
+curl -I http://localhost
+
+Probar PostgreSQL actual:
+psql -h localhost -p 5440 -U ecommerce_user -d ecommerce_db -c "SELECT current_database(), current_user, version();"
+
+================================================================================
+PASO 25. CAPTURAS Y EVIDENCIAS PARA EL DOCENTE
+================================================================================
+
+Capturas recomendadas:
+cat /etc/almalinux-release
+hostnamectl
+firewall-cmd --list-all
+ss -tulpen
+systemctl status nginx
+systemctl status postgresql-15
+systemctl status fail2ban
+getenforce
+sestatus
+id deploy
+id ecommerce
+psql -h localhost -p 5440 -U ecommerce_user -d ecommerce_db -c "SELECT version();"
+
+También guardar:
+- Captura del proveedor VPS.
+- Captura de acceso SSH con deploy.
+- Captura de Nginx en navegador.
+- Captura de PostgreSQL activo.
+- Captura de firewall.
+- Captura de Fail2Ban.
+- Captura de SSL cuando se instale.
+- Captura del dominio y DNS.
+
+================================================================================
+RESUMEN DEL ESTADO ACTUAL
+================================================================================
+
+Correcto:
+- AlmaLinux 9.8.
+- Hostname ecommerce-vps.
+- SSH por 2222.
+- Firewalld activo.
+- Nginx activo por 80.
+- PostgreSQL 15 activo.
+- PostgreSQL no está público.
+- SELinux en Permissive.
+- Fail2Ban activo.
+
+Pendiente:
+- Trabajar normalmente con deploy.
+- Quitar cockpit del firewall si no se usa.
+- Revisar rich rule de IP bloqueada.
+- Decidir puerto PostgreSQL: 5440 o 5432.
+- Instalar/configurar Certbot.
+- Configurar dominio.
+- Configurar HTTPS.
+- Crear o subir proyecto Django.
+- Crear Gunicorn systemd.
+- Conectar Nginx con Gunicorn.
+- Pasar SELinux a Enforcing al final.
+
+================================================================================
+FIN DEL DOCUMENTO
+================================================================================

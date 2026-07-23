@@ -1,0 +1,1137 @@
+================================================================================
+PROYECTO E-COMMERCE NODE.JS + POSTGRESQL + VPS UBUNTU
+BITÁCORA DE CONFIGURACIÓN DEL VPS + PREGUNTAS POR PASO
+================================================================================
+
+Proyecto: PanEcuador — Plataforma digital de panadería y pastelería ecuatoriana.
+Stack: Node.js 20 (Express 4) + PostgreSQL 16 + Nginx + PM2 + React (Vite).
+Proveedor VPS: Hostinger.
+Sistema Operativo: Ubuntu 24.04.4 LTS (Noble Numbat).
+Dominio: panecuador.online / www.panecuador.online
+SSL: Let's Encrypt (Certbot) — HTTPS activo.
+
+Objetivo:
+Dejar el VPS Ubuntu preparado para desplegar la plataforma PanEcuador
+usando Node.js, PostgreSQL, Nginx como reverse proxy, PM2 como gestor
+de procesos, UFW como firewall y configuración de seguridad profesional.
+
+Estado actual verificado (11 de junio de 2026):
+- Sistema: Ubuntu 24.04.4 LTS (Noble Numbat).
+- Hostname: panecuador-vps.
+- Zona horaria: America/Guayaquil (-05, -0500).
+- SSH funcionando por puerto 22 (IP fija del hosting).
+- UFW activo con puertos 22, 80 y 443 habilitados.
+- Nginx activo sirviendo frontend en puerto 80/443 con SSL.
+- PostgreSQL 16 activo en puerto 5432 (solo local 127.0.0.1).
+- PM2 gestionando el backend Node.js como usuario panecuador (no root).
+- Fail2Ban activo protegiendo SSH.
+- AppArmor cargado con 118 perfiles (24 en enforce).
+- Backups automáticos programados a las 2:00 AM.
+- Repositorio clonado en /var/www/panecuador.
+- 3 roles en PostgreSQL: postgres, admin_pan, readonly_pan.
+- 3 usuarios Linux de servicio: deploy, panecuador, www-data en grupo webapps.
+
+================================================================================
+PASO 1. ENTRAR POR PRIMERA VEZ AL VPS
+================================================================================
+
+Comando:
+ssh root@IP_DEL_VPS
+
+Para qué sirve:
+Permite entrar al servidor con el usuario root proporcionado por Hostinger
+para realizar la configuración inicial del sistema.
+
+Resultado obtenido:
+root@srv1732987:~#
+
+Errores comunes:
+- Permission denied: contraseña incorrecta.
+- Connection timed out: IP incorrecta, VPS apagado o firewall del proveedor.
+- Connection refused: el servicio SSH no está corriendo.
+
+Nota sobre nuestro caso:
+El hosting de Hostinger ya proporciona una IP pública fija, por lo que
+no es necesario configurar restricciones SSH por IP ni cambiar el puerto SSH.
+Conectamos directamente con la IP asignada por el panel de Hostinger.
+
+Pregunta frecuente:
+P: ¿Es seguro conectar como root?
+R: Root solo debe usarse para la configuración inicial. Después se debe
+   usar el usuario 'deploy' con privilegios sudo para la administración diaria.
+   Esto es el principio de mínimo privilegio.
+
+================================================================================
+PASO 2. VERIFICAR SISTEMA OPERATIVO
+================================================================================
+
+Comandos:
+lsb_release -a
+cat /etc/os-release
+whoami
+ip addr
+ip route
+
+Para qué sirve:
+Confirma que el VPS usa Ubuntu LTS, revisa el usuario actual y la
+configuración de red asignada por Hostinger.
+
+Resultado obtenido:
+Distributor ID: Ubuntu
+Description:    Ubuntu 24.04.4 LTS
+Release:        24.04
+Codename:       noble
+
+Diferencia con AlmaLinux:
+- En AlmaLinux se usa: cat /etc/almalinux-release
+- En Ubuntu se usa:    lsb_release -a  o  cat /etc/os-release
+- AlmaLinux es derivado de RHEL (Red Hat). Ubuntu es derivado de Debian.
+- Los gestores de paquetes son diferentes: dnf (AlmaLinux) vs apt (Ubuntu).
+
+================================================================================
+PASO 3. ACTUALIZAR SISTEMA
+================================================================================
+
+Comandos:
+sudo apt update
+sudo apt upgrade -y
+
+Para qué sirve:
+- apt update: actualiza la lista de paquetes disponibles desde los repositorios.
+- apt upgrade -y: instala las actualizaciones pendientes sin pedir confirmación.
+
+Resultado correcto:
+Reading package lists... Done
+X upgraded, Y newly installed...
+
+Diferencia con AlmaLinux:
+- AlmaLinux usa: dnf update -y
+- Ubuntu usa:    apt update && apt upgrade -y
+- En AlmaLinux se instala EPEL para repositorios extras.
+  En Ubuntu los repositorios universe/multiverse ya vienen habilitados.
+
+Errores comunes:
+- Could not resolve host: problema de DNS o conectividad de red.
+- E: Unable to locate package: paquete no encontrado, revisar nombre.
+- dpkg was interrupted: ejecutar sudo dpkg --configure -a para reparar.
+
+================================================================================
+PASO 4. CONFIGURAR HOSTNAME Y ZONA HORARIA
+================================================================================
+
+Comandos ejecutados:
+sudo hostnamectl set-hostname panecuador-vps
+hostnamectl
+sudo timedatectl set-timezone America/Guayaquil
+timedatectl
+
+Para qué sirve:
+- Asigna un nombre identificable al servidor (panecuador-vps).
+- Ajusta la zona horaria a Ecuador (America/Guayaquil, UTC-5) para que los
+  logs, timestamps de la base de datos y cron jobs coincidan con la hora local.
+
+Resultado obtenido:
+  Static hostname: panecuador-vps
+  Time zone: America/Guayaquil (-05, -0500)
+
+Diferencia con AlmaLinux:
+Los comandos hostnamectl y timedatectl son iguales en ambos sistemas,
+ya que son parte de systemd (estándar en Linux moderno).
+
+Pregunta frecuente:
+P: ¿Por qué America/Guayaquil y no America/Lima?
+R: Porque el proyecto es PanEcuador, basado en Ecuador. Lima es para Perú.
+   Ambas zonas están en UTC-5, pero es correcto usar la zona del país.
+
+================================================================================
+PASO 5. CREAR USUARIOS Y ROLES DE LINUX
+================================================================================
+
+Usuarios creados:
+1. root: administrador total; solo emergencia y configuración inicial.
+2. deploy: usuario humano de administración diaria; entra por SSH; usa sudo.
+3. panecuador: usuario de servicio; ejecuta Node.js/PM2; NO entra por SSH.
+4. www-data: usuario del servicio Nginx; ya existe en Ubuntu.
+5. postgres: usuario del sistema para administrar PostgreSQL; ya existe.
+
+Grupo creado:
+webapps — agrupa a deploy, panecuador y www-data para compartir acceso
+a los archivos del proyecto.
+
+Comandos ejecutados:
+groupadd webapps
+
+useradd -m -s /bin/bash deploy
+echo "deploy:PanEcuador2026!" | chpasswd
+usermod -aG sudo,webapps deploy
+
+useradd -r -m -d /srv/panecuador -s /usr/sbin/nologin panecuador
+usermod -aG webapps panecuador
+
+usermod -aG webapps www-data
+
+Verificación obtenida:
+id deploy
+  uid=1000(deploy) gid=1001(deploy) groups=1001(deploy),27(sudo),1000(webapps)
+
+id panecuador
+  uid=999(panecuador) gid=988(panecuador) groups=988(panecuador),1000(webapps)
+
+id www-data
+  uid=33(www-data) gid=33(www-data) groups=33(www-data),1000(webapps)
+
+Explicación de cada usuario:
+- deploy: Pertenece a sudo (puede ejecutar comandos como root con contraseña)
+  y webapps (acceso a archivos del proyecto). Es el usuario que el
+  administrador humano usa para trabajar diariamente en el servidor.
+- panecuador: Usuario de servicio con nologin (no puede hacer SSH).
+  Ejecuta PM2/Node.js. Si un atacante compromete la aplicación, solo tiene
+  acceso a este usuario limitado, no a root.
+- www-data: Usuario de Nginx. Necesita estar en webapps para leer los
+  archivos estáticos del frontend (dist/).
+
+Diferencia con AlmaLinux:
+- Los compañeros crearon: deploy (wheel) y ecommerce (servicio).
+- Nosotros creamos: deploy (sudo) y panecuador (servicio).
+- En AlmaLinux el grupo de sudo se llama 'wheel'.
+  En Ubuntu el grupo de sudo se llama 'sudo'.
+
+Principio de seguridad:
+Esto implementa el PRINCIPIO DE MÍNIMO PRIVILEGIO. Cada usuario solo tiene
+los permisos necesarios para su función. Si hackean la app web, el atacante
+queda atrapado en el usuario panecuador (sin sudo, sin SSH, sin shell).
+
+================================================================================
+PASO 6. PROBAR SUDO CON DEPLOY
+================================================================================
+
+Comando ejecutado:
+echo "PanEcuador2026!" | su - deploy -c "sudo -S whoami"
+
+Resultado obtenido:
+root
+
+Esto confirma que deploy puede ejecutar comandos como root usando sudo.
+En producción, el administrador hace:
+  ssh deploy@IP_DEL_VPS
+  sudo systemctl restart nginx   (pide contraseña de deploy)
+
+Si saliera "deploy is not in the sudoers file":
+Solución como root: usermod -aG sudo deploy
+Luego cerrar sesión y volver a entrar.
+
+================================================================================
+PASO 7. INSTALAR HERRAMIENTAS BASE
+================================================================================
+
+Comando ejecutado:
+sudo apt install -y git curl wget nano unzip tar htop build-essential
+
+Para qué sirve cada herramienta:
+- git: clonar y actualizar el repositorio del proyecto desde GitHub.
+- curl/wget: probar conexiones HTTP y descargar archivos.
+- nano: editor de texto en terminal para archivos de configuración.
+- unzip/tar: descomprimir archivos.
+- htop: monitor visual interactivo de procesos, CPU y memoria.
+- build-essential: compiladores C/C++ (gcc, g++, make) necesarios para
+  módulos nativos de Node.js que requieren compilación.
+
+Resultado obtenido:
+build-essential is already the newest version (12.10ubuntu1).
+htop ya instalado.
+
+Diferencia con AlmaLinux:
+- AlmaLinux: dnf install -y ... policycoreutils-python-utils chrony dnf-automatic
+- Ubuntu:    apt install -y ... build-essential
+- AlmaLinux necesita policycoreutils para SELinux. Ubuntu no usa SELinux.
+- AlmaLinux necesita chrony para sincronización NTP. Ubuntu usa systemd-timesyncd.
+
+================================================================================
+PASO 8. INSTALAR NODE.JS 20 LTS
+================================================================================
+
+Comandos ejecutados:
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+Verificación obtenida:
+node -v   →  v20.20.2
+npm -v    →  10.8.2
+
+Para qué sirve:
+Node.js es el entorno de ejecución que permite correr JavaScript del lado
+del servidor. Nuestro backend (Express 4) requiere Node.js.
+Usamos la versión 20 LTS (Long Term Support) por estabilidad.
+
+Diferencia con AlmaLinux (que usaba Python/Django):
+- Los compañeros instalaron Python 3.12 porque su proyecto usa Django.
+- Nosotros instalamos Node.js 20 porque nuestro proyecto usa Express.
+- Django = framework web de Python.
+- Express = framework web de Node.js.
+- Ambos cumplen la misma función: servidor de aplicaciones web.
+
+================================================================================
+PASO 9. INSTALAR Y CONFIGURAR POSTGRESQL
+================================================================================
+
+Comandos ejecutados:
+sudo apt install postgresql postgresql-contrib -y
+sudo systemctl status postgresql
+
+Resultado obtenido:
+Active: active (running)
+PostgreSQL 16 instalado desde los repositorios de Ubuntu 24.04.
+
+Verificar puerto:
+ss -ltnp | grep postgres
+
+Resultado obtenido:
+  LISTEN  127.0.0.1:5432  postgres
+  LISTEN  [::1]:5432      postgres
+
+Estado: CORRECTO — PostgreSQL solo escucha en localhost (127.0.0.1).
+Si dijera 0.0.0.0:5432 sería PELIGROSO (público a internet).
+
+Diferencia con AlmaLinux:
+- AlmaLinux: Instala PostgreSQL 15 desde el repositorio pgdg.
+  Requiere initdb manual. Servicio: postgresql-15.
+- Ubuntu: Instala PostgreSQL 16 desde los repositorios de Ubuntu.
+  Inicialización automática. Servicio: postgresql.
+- El archivo de configuración en AlmaLinux:
+  /var/lib/pgsql/15/data/postgresql.conf
+- En Ubuntu:
+  /etc/postgresql/16/main/postgresql.conf
+
+================================================================================
+PASO 10. CREAR BASE DE DATOS Y USUARIO PRINCIPAL
+================================================================================
+
+Entrar a la consola de PostgreSQL:
+sudo -i -u postgres psql
+
+Comandos SQL ejecutados:
+CREATE DATABASE panaderia_db;
+CREATE USER admin_pan WITH ENCRYPTED PASSWORD 'panecuador2026';
+GRANT ALL PRIVILEGES ON DATABASE panaderia_db TO admin_pan;
+\q
+
+Para qué sirve cada línea:
+- CREATE DATABASE: crea la base de datos de la aplicación.
+- CREATE USER: crea un usuario específico para la aplicación.
+- GRANT ALL PRIVILEGES: otorga permisos sobre la base de datos.
+- \q: sale de la consola psql.
+
+Verificación:
+psql -h localhost -U admin_pan -d panaderia_db -c "SELECT current_database(), current_user, version();"
+
+Resultado:
+  current_database | current_user |  version
+  panaderia_db     | admin_pan    | PostgreSQL 16.x
+
+================================================================================
+PASO 11. CONFIGURAR ROLES Y SEGURIDAD EN POSTGRESQL
+================================================================================
+
+Este paso es CRÍTICO para la seguridad del DBMS.
+
+Comandos SQL ejecutados:
+
+--- 1. Revocar acceso público ---
+REVOKE ALL ON DATABASE panaderia_db FROM PUBLIC;
+
+¿Por qué? Por defecto, cualquier usuario de PostgreSQL puede conectarse
+a cualquier base de datos. REVOKE PUBLIC elimina ese acceso por defecto.
+
+--- 2. Seguridad del schema public ---
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT USAGE ON SCHEMA public TO admin_pan;
+
+--- 3. Permisos específicos para admin_pan (usuario de la app) ---
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO admin_pan;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO admin_pan;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO admin_pan;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO admin_pan;
+
+¿Por qué? admin_pan solo puede hacer operaciones DML (SELECT, INSERT,
+UPDATE, DELETE). NO puede hacer operaciones DDL peligrosas como DROP TABLE
+o ALTER TABLE. Si un atacante obtiene las credenciales de admin_pan, no
+puede destruir la estructura de la base de datos.
+
+--- 4. Crear rol de solo lectura (readonly_pan) ---
+CREATE ROLE readonly_pan WITH LOGIN PASSWORD 'ReadOnly_Pan2026';
+GRANT CONNECT ON DATABASE panaderia_db TO readonly_pan;
+GRANT USAGE ON SCHEMA public TO readonly_pan;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly_pan;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO readonly_pan;
+
+¿Por qué? readonly_pan es para reportes y consultas de auditoría.
+Solo puede leer datos (SELECT), no puede modificar absolutamente nada.
+
+--- 5. Activar logging de seguridad ---
+Archivo: /etc/postgresql/16/main/postgresql.conf
+
+log_statement = 'ddl'        (antes: none)
+log_connections = on          (antes: off)
+
+Reiniciar: sudo systemctl restart postgresql
+
+¿Por qué?
+- log_statement = 'ddl': registra todos los cambios estructurales
+  (CREATE, DROP, ALTER). Si alguien modifica una tabla, queda registrado.
+- log_connections = on: registra todas las conexiones al DBMS.
+  Permite auditar quién se conectó y cuándo.
+
+Verificación obtenida:
+\du (lista de roles):
+  Role name    | Attributes
+  admin_pan    | (sin atributos especiales - solo DML)
+  postgres     | Superuser, Create role, Create DB, Replication, Bypass RLS
+  readonly_pan | (sin atributos especiales - solo SELECT)
+
+Test de readonly_pan:
+psql -h localhost -U readonly_pan -d panaderia_db -c "SELECT count(*) FROM productos;"
+  count: 30   ← puede leer ✓
+
+Tabla resumen de roles PostgreSQL:
+
+  Rol          | Puede SELECT | INSERT/UPDATE/DELETE | CREATE/DROP | Superuser
+  postgres     | Sí           | Sí                   | Sí          | Sí (solo emergencias)
+  admin_pan    | Sí           | Sí                   | No          | No (usa la app)
+  readonly_pan | Sí           | No                   | No          | No (reportes)
+
+Diferencia con AlmaLinux:
+Los compañeros crearon: ecommerce_user con todos los privilegios.
+Nosotros tenemos separación de roles (admin_pan + readonly_pan) lo cual
+es más seguro y profesional.
+
+================================================================================
+PASO 12. CONFIGURACIÓN DE AUTENTICACIÓN (pg_hba.conf)
+================================================================================
+
+Archivo: /etc/postgresql/16/main/pg_hba.conf
+
+Contenido verificado:
+local   all   postgres              peer
+local   all   all                   peer
+host    all   all   127.0.0.1/32    scram-sha-256
+host    all   all   ::1/128         scram-sha-256
+
+Explicación de cada línea:
+- local ... peer: Las conexiones locales (sin red) usan autenticación peer.
+  Esto significa que el usuario del SO debe coincidir con el usuario de PostgreSQL.
+  Solo el usuario 'postgres' del sistema puede conectarse como 'postgres' en la BD.
+
+- host ... scram-sha-256: Las conexiones por red (localhost) requieren
+  contraseña cifrada con SCRAM-SHA-256 (el método más seguro de PostgreSQL).
+  Nuestro backend (Node.js) se conecta por host localhost y usa este método.
+
+- 127.0.0.1/32: Solo acepta conexiones desde la misma máquina (localhost).
+  NO hay líneas con 0.0.0.0/0 que permitirían conexiones desde cualquier IP.
+
+Estado: CORRECTO — Autenticación segura.
+
+================================================================================
+PASO 13. CARGAR ESTRUCTURA Y DATOS EN LA BASE DE DATOS
+================================================================================
+
+Comandos ejecutados (desde /var/www/panecuador):
+
+psql -h localhost -U admin_pan -d panaderia_db -f database/01_schema.sql
+psql -h localhost -U admin_pan -d panaderia_db -f database/02_seed.sql
+psql -h localhost -U admin_pan -d panaderia_db -f database/03_indexes.sql
+psql -h localhost -U admin_pan -d panaderia_db -f database/04_admin_migration.sql
+psql -h localhost -U admin_pan -d panaderia_db -f database/05_workers_producer.sql
+psql -h localhost -U admin_pan -d panaderia_db -f database/06_complete_data.sql
+psql -h localhost -U admin_pan -d panaderia_db -f database/07_site_config.sql
+psql -h localhost -U admin_pan -d panaderia_db -f database/08_worker_portal.sql
+psql -h localhost -U admin_pan -d panaderia_db -f database/09_create_workers_accounts.sql
+psql -h localhost -U admin_pan -d panaderia_db -f database/10_replenishment_flow.sql
+
+Para qué sirve cada script:
+- 01_schema.sql: Tablas principales (usuarios, productos, pedidos, carrito, etc.)
+- 02_seed.sql: Datos iniciales de prueba (categorías, productos base)
+- 03_indexes.sql: Índices para mejorar rendimiento de consultas
+- 04_admin_migration.sql: Migración para roles de administrador
+- 05_workers_producer.sql: Estructura para trabajadores y productores
+- 06_complete_data.sql: Catálogo completo de productos con precios
+- 07_site_config.sql: Configuración global del sitio (nombre, logo, colores)
+- 08_worker_portal.sql: Portal de tareas para trabajadores
+- 09_create_workers_accounts.sql: Cuentas de acceso para los trabajadores
+- 10_replenishment_flow.sql: Sistema de reposición automática de stock
+
+Importante: Los scripts se ejecutan en ORDEN NUMÉRICO porque hay dependencias.
+Si se ejecutan en desorden, fallan por referencias a tablas que no existen.
+
+================================================================================
+PASO 14. ACTIVAR Y CONFIGURAR FIREWALL (UFW)
+================================================================================
+
+Comandos ejecutados:
+sudo ufw allow OpenSSH
+sudo ufw allow 'Nginx Full'
+sudo ufw enable
+sudo ufw status verbose
+
+Resultado obtenido:
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), disabled (routed)
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW IN    Anywhere
+80/tcp                     ALLOW IN    Anywhere
+443/tcp                    ALLOW IN    Anywhere
+22/tcp (v6)                ALLOW IN    Anywhere (v6)
+80/tcp (v6)                ALLOW IN    Anywhere (v6)
+443/tcp (v6)               ALLOW IN    Anywhere (v6)
+
+Para qué sirve UFW:
+UFW (Uncomplicated Firewall) controla qué puertos están abiertos.
+Default: deny (incoming) = todo lo que no esté explícitamente permitido, se bloquea.
+
+Puertos abiertos y su justificación:
+- 22/tcp (SSH): para conectarnos remotamente al servidor.
+- 80/tcp (HTTP): tráfico web (redirige a HTTPS).
+- 443/tcp (HTTPS): tráfico web cifrado con SSL.
+- Puerto 5000 (Node.js) y 5432 (PostgreSQL) NO están abiertos.
+  Solo son accesibles desde localhost. Protegidos por el firewall.
+
+Diferencia con AlmaLinux:
+- AlmaLinux usa: firewalld con firewall-cmd
+- Ubuntu usa:    ufw (Uncomplicated Firewall)
+
+Equivalencia de comandos:
+  AlmaLinux                          Ubuntu
+  firewall-cmd --add-service=http    ufw allow 'Nginx HTTP'
+  firewall-cmd --add-service=https   ufw allow 'Nginx HTTPS'
+  firewall-cmd --list-all            ufw status verbose
+  systemctl status firewalld         ufw status
+
+================================================================================
+PASO 15. VERIFICAR PUERTOS CON ss -tulpen
+================================================================================
+
+Comando ejecutado:
+ss -tulpen
+
+Resultado obtenido:
+LISTEN  0.0.0.0:443    nginx        ← HTTPS (público)
+LISTEN  0.0.0.0:22     sshd         ← SSH (público)
+LISTEN  0.0.0.0:80     nginx        ← HTTP (público, redirige a HTTPS)
+LISTEN  127.0.0.1:5432 postgres     ← DBMS (solo local) ✓
+LISTEN  *:5000         node         ← Backend API (protegido por UFW) ✓
+LISTEN  [::]:22        sshd         ← SSH IPv6
+LISTEN  [::1]:5432     postgres     ← DBMS IPv6 local
+
+Análisis de cada servicio:
+- Nginx (0.0.0.0:80 y :443): Acepta tráfico web público. CORRECTO.
+- SSH (0.0.0.0:22): Acepta conexiones SSH. CORRECTO (protegido por Fail2Ban).
+- PostgreSQL (127.0.0.1:5432): Solo local. CORRECTO y SEGURO.
+- Node.js (*:5000): Escucha en todas las interfaces PERO el firewall UFW
+  bloquea el puerto 5000 desde afuera (no está en la lista de permitidos).
+  Solo Nginx puede acceder vía proxy_pass localhost:5000.
+
+================================================================================
+PASO 16. SUBIR EL CÓDIGO AL SERVIDOR
+================================================================================
+
+Comandos ejecutados:
+cd /var/www
+sudo git clone https://github.com/AndyMonteroA/PanEcuadorA.git panecuador
+cd panecuador
+
+Estructura del proyecto:
+/var/www/panecuador/
+├── panecuador-backend/    ← API Node.js (Express 4)
+│   ├── src/
+│   │   ├── app.js         ← Punto de entrada del servidor
+│   │   ├── config/
+│   │   │   └── db.js      ← Pool de conexiones a PostgreSQL
+│   │   ├── routes/        ← 11 archivos de rutas API
+│   │   ├── middleware/    ← Autenticación JWT, manejo de errores
+│   │   └── services/     ← Cron jobs (rotación stock, turnos)
+│   ├── uploads/           ← Imágenes subidas por productores
+│   ├── .env               ← Variables de entorno (no en git)
+│   └── package.json
+├── panecuador-frontend/   ← Aplicación React 19 (Vite)
+│   ├── src/
+│   ├── dist/              ← Build de producción
+│   └── package.json
+├── database/              ← 10 scripts SQL ordenados
+└── deployment_guide.md
+
+Permisos asignados:
+chown -R deploy:webapps /var/www/panecuador
+chmod -R 2775 /var/www/panecuador
+
+chown -R panecuador:webapps /var/www/panecuador/panecuador-backend/uploads
+chmod -R 2770 /var/www/panecuador/panecuador-backend/uploads
+
+Verificación obtenida:
+drwxrwsr-x  deploy     webapps    /var/www/panecuador
+drwxrws---  panecuador webapps    /var/www/panecuador/panecuador-backend/uploads
+
+La 's' en los permisos indica el setgid bit: todos los archivos nuevos
+heredan automáticamente el grupo webapps.
+
+================================================================================
+PASO 17. CONFIGURAR Y LEVANTAR EL BACKEND
+================================================================================
+
+Comandos ejecutados:
+cd /var/www/panecuador/panecuador-backend
+npm install --production
+
+Archivo .env creado con nano:
+PORT=5000
+NODE_ENV=production
+DB_USER=admin_pan
+DB_PASSWORD=panecuador2026
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=panaderia_db
+JWT_SECRET=secreto_seguro_pan_ecuador_2026
+FRONTEND_URL=https://panecuador.online
+
+Para qué sirve cada variable:
+- PORT: puerto donde escucha el backend (5000, solo accesible localmente).
+- NODE_ENV: modo producción (desactiva logs de debug, mejora rendimiento).
+- DB_USER/DB_PASSWORD: credenciales de PostgreSQL creadas en el paso 10.
+- DB_HOST: localhost porque PostgreSQL está en el mismo servidor.
+- DB_PORT: 5432, puerto estándar de PostgreSQL.
+- DB_NAME: nombre de la base de datos.
+- JWT_SECRET: clave secreta para firmar tokens de autenticación JSON Web Token.
+- FRONTEND_URL: URL del frontend para configuración CORS.
+
+Configuración de conexión a PostgreSQL (db.js):
+const pool = new Pool({
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT) || 5432,
+  database: process.env.DB_NAME || 'panaderia_db',
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD || '',
+  max: 20,                    // Pool de 20 conexiones simultáneas
+  idleTimeoutMillis: 30000,   // Cierra conexiones inactivas tras 30s
+  connectionTimeoutMillis: 2000, // Timeout de conexión 2s
+});
+
+Pregunta frecuente:
+P: ¿Qué es un pool de conexiones?
+R: En vez de abrir y cerrar una conexión a PostgreSQL por cada petición
+   HTTP (costoso), el pool mantiene un conjunto de conexiones abiertas
+   y las reutiliza. max: 20 significa hasta 20 conexiones simultáneas.
+
+================================================================================
+PASO 18. INSTALAR PM2 Y EJECUTAR COMO USUARIO DE SERVICIO
+================================================================================
+
+Instalar PM2 globalmente:
+sudo npm install -g pm2
+
+Iniciar backend como usuario panecuador (NO como root):
+su - panecuador -c "cd /var/www/panecuador/panecuador-backend && pm2 start src/app.js --name panecuador-backend && pm2 save"
+
+Configurar inicio automático con systemd:
+env PATH=$PATH:/usr/bin pm2 startup systemd -u panecuador --hp /srv/panecuador
+su - panecuador -c "pm2 save"
+
+Resultado obtenido:
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 0  │ panecuador-backend │ fork     │ 0    │ online    │ 0%       │ 66.7mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+
+Servicio systemd creado:
+/etc/systemd/system/pm2-panecuador.service
+
+Verificación — PM2 corre como usuario panecuador:
+ps aux | grep "node /var/www" | grep -v grep
+  panecua+  76105  node /var/www/panecuador/panecuador-backend/src/app.js
+
+¿Por qué ejecutar como panecuador y NO como root?
+- Si PM2/Node.js corre como root y un atacante explota una vulnerabilidad,
+  obtiene acceso ROOT a todo el servidor.
+- Si corre como panecuador, el atacante queda atrapado en un usuario
+  sin sudo, sin shell, sin SSH. Daño limitado.
+
+Para qué sirve PM2:
+- Mantiene la aplicación corriendo 24/7.
+- Reinicia automáticamente si el proceso se cae.
+- Se inicia con el servidor (pm2 startup).
+- Logs centralizados (pm2 logs).
+
+Comandos útiles de PM2 (ejecutar como panecuador):
+su -s /bin/bash panecuador -c "pm2 status"
+su -s /bin/bash panecuador -c "pm2 logs"
+su -s /bin/bash panecuador -c "pm2 restart panecuador-backend"
+
+Diferencia con AlmaLinux (Gunicorn):
+- Los compañeros usan Gunicorn como servidor WSGI para Django + systemd.
+- Nosotros usamos PM2 como process manager para Node.js + systemd.
+- Ambos cumplen la misma función: mantener la aplicación corriendo.
+
+================================================================================
+PASO 19. COMPILAR EL FRONTEND
+================================================================================
+
+Comandos ejecutados:
+cd /var/www/panecuador/panecuador-frontend
+npm install
+npm run build
+
+Para qué sirve:
+React + Vite en desarrollo sirve archivos dinámicamente.
+En producción, npm run build genera una carpeta /dist con archivos
+HTML, CSS y JS optimizados y minificados que Nginx sirve como estáticos.
+
+Resultado:
+/var/www/panecuador/panecuador-frontend/dist/index.html  ← existe ✓
+
+Diferencia con AlmaLinux (Django):
+- Django sirve archivos estáticos con collectstatic.
+- React/Vite genera un bundle optimizado con npm run build.
+
+================================================================================
+PASO 20. INSTALAR Y CONFIGURAR NGINX
+================================================================================
+
+Instalar:
+sudo apt install nginx -y
+
+Verificar:
+sudo systemctl status nginx   → Active: active (running)
+nginx -t                       → syntax is ok, test is successful
+
+Configuración creada:
+sudo nano /etc/nginx/sites-available/panecuador
+
+Contenido del archivo de configuración:
+server {
+    server_name panecuador.online www.panecuador.online;
+
+    # Frontend (React App - archivos estáticos)
+    location / {
+        root /var/www/panecuador/panecuador-frontend/dist;
+        index index.html index.htm;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Backend API - Reverse Proxy hacia Node.js
+    location /api {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Archivos subidos (imágenes de productos)
+    location /uploads/ {
+        alias /var/www/panecuador/panecuador-backend/uploads/;
+    }
+
+    # SSL configurado por Certbot (Let's Encrypt)
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/panecuador.online/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/panecuador.online/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+
+# Redirección HTTP → HTTPS
+server {
+    if ($host = www.panecuador.online) {
+        return 301 https://$host$request_uri;
+    }
+    if ($host = panecuador.online) {
+        return 301 https://$host$request_uri;
+    }
+    listen 80;
+    server_name panecuador.online www.panecuador.online;
+    return 404;
+}
+
+Habilitar configuración:
+sudo ln -s /etc/nginx/sites-available/panecuador /etc/nginx/sites-enabled/
+sudo rm /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl restart nginx
+
+Para qué sirve cada bloque:
+- location /: sirve los archivos estáticos del frontend React.
+- try_files ... /index.html: necesario para React Router (SPA).
+- location /api: reverse proxy que reenvía peticiones al backend Node.js.
+- location /uploads/: sirve imágenes subidas por productores.
+- listen 443 ssl: HTTPS con certificado de Let's Encrypt.
+- El segundo server redirige todo HTTP (80) a HTTPS (443).
+
+Diferencia con AlmaLinux:
+- AlmaLinux: configuración en /etc/nginx/conf.d/
+- Ubuntu: configuración en /etc/nginx/sites-available/ + symlink a sites-enabled/
+
+================================================================================
+PASO 21. SEGURIDAD EN NGINX
+================================================================================
+
+Archivo creado:
+/etc/nginx/conf.d/security.conf
+
+Contenido:
+server_tokens off;
+
+Comandos ejecutados:
+echo "server_tokens off;" > /etc/nginx/conf.d/security.conf
+nginx -t && systemctl reload nginx
+
+Verificación:
+curl -sI https://panecuador.online | grep "Server"
+
+Resultado obtenido:
+Server: nginx
+
+ANTES (sin server_tokens off): Server: nginx/1.24.0
+DESPUÉS: Server: nginx  ← versión oculta ✓
+
+¿Por qué? Un atacante no debe saber la versión exacta de Nginx para
+buscar vulnerabilidades específicas (CVEs) de esa versión.
+
+================================================================================
+PASO 22. CONFIGURAR SSL/HTTPS CON LET'S ENCRYPT
+================================================================================
+
+Comandos ejecutados:
+sudo apt install certbot python3-certbot-nginx -y
+sudo certbot --nginx -d panecuador.online -d www.panecuador.online
+
+Resultado:
+Certificado SSL instalado exitosamente.
+HTTPS activo en https://panecuador.online
+
+El certificado se renueva automáticamente cada 90 días.
+Certbot crea un timer de systemd que verifica y renueva cuando faltan 30 días.
+
+Verificar renovación automática:
+sudo certbot renew --dry-run
+
+Nota importante:
+Los compañeros con AlmaLinux AÚN NO tienen SSL configurado (está pendiente).
+Nosotros ya lo tenemos activo, lo cual es una ventaja en la presentación.
+
+================================================================================
+PASO 23. SEGURIDAD: APPARMOR
+================================================================================
+
+Comando ejecutado:
+sudo aa-status
+
+Resultado obtenido:
+apparmor module is loaded.
+118 profiles are loaded.
+24 profiles are in enforce mode.
+
+Para qué sirve:
+AppArmor es el sistema de seguridad obligatoria (MAC) de Ubuntu.
+Restringe qué puede hacer cada proceso del sistema.
+
+Diferencia con AlmaLinux:
+- AlmaLinux usa SELinux con modos: Disabled, Permissive, Enforcing.
+- Ubuntu usa AppArmor con modos: enforce, complain, unconfined.
+- SELinux requiere configuración manual compleja.
+- AppArmor viene preconfigurado y activo en Ubuntu.
+- Ambos cumplen la misma función: control de acceso obligatorio (MAC).
+
+Los compañeros tuvieron que activar SELinux manualmente (estaba Disabled).
+Nosotros ya tenemos AppArmor activo con 24 perfiles en enforce.
+
+================================================================================
+PASO 24. INSTALAR Y CONFIGURAR FAIL2BAN
+================================================================================
+
+Comandos ejecutados:
+sudo apt install fail2ban -y
+
+Configuración creada:
+sudo nano /etc/fail2ban/jail.local
+
+Contenido:
+[DEFAULT]
+bantime = 1h
+findtime = 10m
+maxretry = 5
+
+[sshd]
+enabled = true
+port = 22
+backend = systemd
+
+Activar:
+sudo systemctl enable --now fail2ban
+
+Verificación obtenida:
+sudo fail2ban-client status
+  Number of jail: 1
+  Jail list: sshd
+
+Para qué sirve:
+Fail2Ban monitorea intentos de login fallidos en SSH.
+Si alguien falla 5 veces en 10 minutos → IP bloqueada por 1 hora.
+
+Diferencia con AlmaLinux:
+- Comandos de Fail2Ban son iguales en ambos sistemas.
+- Los compañeros configuraron puerto 2222 (cambiaron SSH).
+  Nosotros configuramos puerto 22 (default, IP fija de Hostinger).
+
+================================================================================
+PASO 25. BACKUPS AUTOMÁTICOS DE LA BASE DE DATOS
+================================================================================
+
+Directorio de backups:
+mkdir -p /var/backups/postgresql
+chown postgres:postgres /var/backups/postgresql
+
+Script de backup creado:
+/usr/local/bin/backup-panecuador.sh
+
+Contenido del script:
+#!/bin/bash
+FECHA=$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR="/var/backups/postgresql"
+DB_NAME="panaderia_db"
+sudo -u postgres pg_dump $DB_NAME | gzip > "$BACKUP_DIR/${DB_NAME}_${FECHA}.sql.gz"
+find $BACKUP_DIR -name "*.sql.gz" -mtime +7 -delete
+echo "[$(date)] Backup completado: ${DB_NAME}_${FECHA}.sql.gz"
+
+Para qué sirve cada línea:
+- pg_dump: genera un volcado completo de la base de datos (estructura + datos).
+- gzip: comprime el backup para ahorrar disco.
+- find ... -mtime +7 -delete: elimina backups de más de 7 días (evita llenar disco).
+
+Programar backup automático (cron):
+(crontab -l; echo "0 2 * * * /usr/local/bin/backup-panecuador.sh >> /var/log/backup-panecuador.log 2>&1") | crontab -
+
+Esto ejecuta el backup TODOS LOS DÍAS a las 2:00 AM automáticamente.
+
+Verificación obtenida:
+ls -lh /var/backups/postgresql/
+  13K  panaderia_db_20260611_200600.sql.gz
+
+crontab -l | grep backup
+  0 2 * * * /usr/local/bin/backup-panecuador.sh
+
+Primer backup ejecutado manualmente con éxito.
+
+Para restaurar un backup:
+gunzip < /var/backups/postgresql/panaderia_db_FECHA.sql.gz | psql -h localhost -U admin_pan -d panaderia_db
+
+================================================================================
+PASO 26. ACTIVAR ACTUALIZACIONES AUTOMÁTICAS DE SEGURIDAD
+================================================================================
+
+Comandos:
+sudo apt install unattended-upgrades -y
+sudo dpkg-reconfigure -plow unattended-upgrades
+
+Para qué sirve:
+Instala parches de seguridad automáticamente sin intervención humana.
+
+Verificar:
+sudo systemctl status unattended-upgrades
+
+Diferencia con AlmaLinux:
+- AlmaLinux: dnf-automatic con timer de systemd.
+- Ubuntu:    unattended-upgrades con timer propio.
+
+================================================================================
+PASO 27. ARQUITECTURA COMPLETA DEL SISTEMA
+================================================================================
+
+Diagrama de flujo de una petición:
+
+  [Navegador del Cliente]
+         │
+         │  HTTPS (puerto 443)
+         ▼
+  ┌──────────────────────┐
+  │   NGINX :80/:443     │ ← Servidor web / Reverse proxy / SSL
+  │   usuario: www-data  │
+  └──────┬───────────────┘
+         │
+    ┌────┴────┐
+    │         │
+    ▼         ▼
+  / (HTML)   /api
+    │         │
+    ▼         ▼
+  [dist/]   [Node.js :5000]  ← Servidor de aplicaciones (PM2)
+  React App  usuario: panecuador
+              │
+              ▼
+         [PostgreSQL :5432]  ← DBMS (Base de datos)
+         usuario: postgres
+              │
+         [panaderia_db]
+         roles: admin_pan, readonly_pan
+
+Componentes y sus roles:
+1. NGINX (Servidor Web): Recibe TODO el tráfico. Sirve frontend estático
+   y reenvía /api al backend. Maneja SSL/HTTPS.
+2. NODE.JS + EXPRESS (Servidor de Aplicaciones): Lógica de negocio.
+   Autenticación JWT, pedidos, carrito, notificaciones, etc.
+3. POSTGRESQL (DBMS): Almacena y gestiona todos los datos.
+   Solo accesible desde localhost.
+4. PM2 (Gestor de Procesos): Mantiene Node.js corriendo 24/7.
+   Corre como usuario panecuador (no root).
+
+================================================================================
+PASO 28. CHECKLIST FINAL DE VERIFICACIÓN
+================================================================================
+
+Todos estos comandos fueron ejecutados el 11 de junio de 2026:
+
+  Verificación                     Comando                              Resultado
+  ─────────────                    ───────                              ─────────
+  Sistema operativo                lsb_release -ds                      Ubuntu 24.04.4 LTS
+  Hostname                         hostname                             panecuador-vps
+  Zona horaria                     timedatectl                          America/Guayaquil
+  Usuario deploy                   id deploy                            sudo + webapps ✓
+  Usuario panecuador               id panecuador                        webapps (servicio) ✓
+  Usuario www-data                 id www-data                          webapps ✓
+  Nginx                            systemctl is-active nginx            active ✓
+  PostgreSQL                       systemctl is-active postgresql       active ✓
+  Fail2Ban                         systemctl is-active fail2ban         active ✓
+  PM2                              pm2 status                           online ✓
+  Firewall                         ufw status                           active (22,80,443) ✓
+  AppArmor                         aa-status                            118 perfiles ✓
+  Nginx versión oculta             curl -sI | grep Server               nginx (sin versión) ✓
+  PostgreSQL solo local            ss -tlnp | grep 5432                 127.0.0.1 ✓
+  Roles PostgreSQL                 \du                                  3 roles ✓
+  Logging PostgreSQL               SHOW log_statement                   ddl ✓
+  Log conexiones                   SHOW log_connections                 on ✓
+  Backup existente                 ls /var/backups/postgresql/          13K .sql.gz ✓
+  Cron backup                      crontab -l                           2am diario ✓
+  Permisos proyecto                ls -ld /var/www/panecuador           deploy:webapps ✓
+  PM2 corre como                   ps aux | grep node                   panecuador ✓
+  API health                       curl /api/health                     success:true ✓
+  HTTPS activo                     curl -sI https://panecuador.online   200 OK ✓
+
+================================================================================
+RESUMEN COMPARATIVO: NUESTRO VPS vs COMPAÑEROS
+================================================================================
+
+  Aspecto                Nosotros (Ubuntu)           Compañeros (AlmaLinux)
+  ───────                ─────────────────           ──────────────────────
+  OS                     Ubuntu 24.04.4 LTS          AlmaLinux 9.8
+  Familia                Debian                      RHEL (Red Hat)
+  Gestor paquetes        apt                         dnf
+  Firewall               UFW                         Firewalld
+  Seguridad MAC          AppArmor (activo)           SELinux (Permissive)
+  Servidor web           Nginx                       Nginx
+  SSL/HTTPS              Let's Encrypt ✓             Pendiente ✗
+  Servidor aplicación    Node.js + Express + PM2     Django + Gunicorn
+  DBMS                   PostgreSQL 16 (apt)         PostgreSQL 15 (pgdg)
+  Roles DBMS             3 (postgres, admin, read)   1 (ecommerce_user)
+  Logging DBMS           ddl + conexiones            No configurado
+  Backups                Automático 2am + 7 días     No configurado
+  Puerto SSH             22 (default, IP fija)       2222 (cambiado)
+  Puerto DB              5432 (default)              5440 (personalizado)
+  Puerto backend         5000 (Node.js)              8000 (Gunicorn)
+  Frontend               React 19 (Vite) → dist/    Django Templates
+  Ubicación proyecto     /var/www/panecuador         /srv/ecommerce
+  Proceso backend        PM2 (user: panecuador)      systemd service
+  Usuarios Linux         3 (deploy, panecuador,      2 (deploy, ecommerce)
+                          www-data) + grupo webapps
+  Actualizaciones auto   unattended-upgrades         dnf-automatic
+  Anti fuerza bruta      Fail2Ban                    Fail2Ban
+  Dominio                panecuador.online           No mencionado
+
+================================================================================
+PREGUNTAS QUE PUEDE HACER EL DOCENTE Y SUS RESPUESTAS
+================================================================================
+
+P1: ¿Qué sistema operativo usa tu VPS?
+R:  Ubuntu 24.04.4 LTS (Noble Numbat), proporcionado por Hostinger.
+    Se verifica con: lsb_release -a
+
+P2: ¿Qué DBMS estás usando y en qué versión?
+R:  PostgreSQL 16, instalado desde los repositorios oficiales de Ubuntu.
+    Se verifica con: sudo systemctl status postgresql
+    Escucha solo en localhost:5432 por seguridad.
+
+P3: ¿Cómo verificas que PostgreSQL no está expuesto al público?
+R:  Con el comando: ss -ltnp | grep postgres
+    Debe mostrar 127.0.0.1:5432, NO 0.0.0.0:5432.
+    Además, el firewall UFW no tiene abierto el puerto 5432.
+
+P4: ¿Qué roles tienes en PostgreSQL?
+R:  Tres roles con diferentes niveles de acceso:
+    - postgres: superusuario, solo para emergencias.
+    - admin_pan: usuario de la aplicación (SELECT, INSERT, UPDATE, DELETE).
+      No puede hacer DROP TABLE ni ALTER TABLE.
+    - readonly_pan: solo lectura (SELECT) para reportes y auditoría.
+    Esto implementa el principio de mínimo privilegio.
+
+P5: ¿Cuál es tu servidor de aplicaciones?
+R:  Node.js 20 con Express 4, gestionado por PM2.
+    PM2 corre como el usuario panecuador (no como root).
+    Se verifica con: ps aux | grep node
+
+P6: ¿Qué firewall usas?
+R:  UFW (Uncomplicated Firewall), el firewall nativo de Ubuntu.
+    Solo puertos 22 (SSH), 80 (HTTP) y 443 (HTTPS) están abiertos.
+    Se verifica con: sudo ufw status verbose
+
+P7: ¿Cómo se comunican Nginx y Node.js?
+R:  Nginx recibe todo el tráfico en puerto 80/443. Las peticiones a /api
+    se reenvían (proxy_pass) al backend Node.js en localhost:5000.
+    Las demás peticiones sirven archivos estáticos de React.
+
+P8: ¿Por qué no usas root para trabajar?
+R:  Por el principio de mínimo privilegio:
+    - deploy: administración diaria con sudo.
+    - panecuador: usuario de servicio (ejecuta la app, sin shell).
+    Si hackean la app, el atacante queda atrapado en panecuador.
+
+P9: ¿Tienes backups de la base de datos?
+R:  Sí. Script automático con pg_dump que se ejecuta todos los días
+    a las 2:00 AM vía cron. Se guardan comprimidos en gzip.
+    Backups de más de 7 días se eliminan automáticamente.
+    Se verifica con: ls -lh /var/backups/postgresql/
+
+P10: ¿Tienes logging en PostgreSQL?
+R:   Sí. log_statement = 'ddl' registra todos los cambios estructurales
+     (CREATE, DROP, ALTER). log_connections = on registra todas las conexiones.
+     Esto permite auditar quién hizo qué y cuándo.
+
+P11: ¿Qué seguridad MAC usas?
+R:   AppArmor (equivalente de SELinux en Ubuntu). Viene activo por defecto
+     con 118 perfiles cargados, 24 en modo enforce.
+     Se verifica con: sudo aa-status
+
+P12: ¿Tienes HTTPS?
+R:   Sí. Certificado SSL de Let's Encrypt instalado con Certbot.
+     Se renueva automáticamente cada 90 días.
+     Se verifica con: curl -sI https://panecuador.online
+
+P13: ¿Tienes protección contra ataques de fuerza bruta?
+R:   Sí. Fail2Ban monitorea SSH. 5 intentos fallidos en 10 minutos
+     → IP bloqueada por 1 hora.
+     Se verifica con: sudo fail2ban-client status sshd
+
+P14: ¿El backend está expuesto directamente a Internet?
+R:   No. Node.js escucha en puerto 5000 pero UFW bloquea ese puerto
+     desde afuera. Solo Nginx puede acceder vía proxy_pass localhost:5000.
+
+P15: ¿Cómo despliegas una actualización?
+R:   1. ssh deploy@IP_DEL_VPS (entrar como deploy)
+     2. cd /var/www/panecuador && git pull
+     3. cd panecuador-backend && npm install
+     4. cd panecuador-frontend && npm install && npm run build
+     5. su -s /bin/bash panecuador -c "pm2 restart panecuador-backend"
+     No necesito reiniciar Nginx ni PostgreSQL.
+
+================================================================================
+FIN DEL DOCUMENTO — BITÁCORA VPS UBUNTU PANECUADOR
+Fecha de última actualización: 11 de junio de 2026
+================================================================================

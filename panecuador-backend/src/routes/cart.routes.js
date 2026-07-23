@@ -128,10 +128,30 @@ router.put('/:id', authMiddleware, async (req, res, next) => {
   try {
     const { cantidad } = req.body;
 
-    if (!cantidad || cantidad < 1) {
+    if (!cantidad || cantidad < 1 || !Number.isInteger(cantidad)) {
       return res.status(400).json({
         success: false,
-        message: 'La cantidad debe ser al menos 1.'
+        message: 'La cantidad debe ser un número entero mayor a 0.'
+      });
+    }
+
+    // Verificar stock del producto
+    const itemResult = await pool.query(
+      `SELECT c.id_producto, p.stock, p.nombre FROM carrito c
+       JOIN productos p ON c.id_producto = p.id_producto
+       WHERE c.id_carrito = $1 AND c.id_usuario = $2`,
+      [req.params.id, req.user.id]
+    );
+
+    if (itemResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Item no encontrado.' });
+    }
+
+    const producto = itemResult.rows[0];
+    if (cantidad > producto.stock) {
+      return res.status(400).json({
+        success: false,
+        message: `Stock insuficiente de "${producto.nombre}". Disponible: ${producto.stock}`
       });
     }
 
@@ -156,10 +176,6 @@ router.put('/:id', authMiddleware, async (req, res, next) => {
        RETURNING *`,
       [cantidad, req.params.id, req.user.id]
     );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Item no encontrado.' });
-    }
 
     res.json({
       success: true,

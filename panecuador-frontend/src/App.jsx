@@ -7,7 +7,7 @@ import Footer from './components/layout/Footer';
 
 // Pages
 import Home from './pages/Home';
-import { Login, Register } from './pages/Auth';
+import { Login, Register, ForgotPassword, ResetPassword } from './pages/Auth';
 import Catalogo from './pages/Catalogo';
 import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
@@ -143,6 +143,8 @@ function App() {
                       <Route path="/" element={<Home />} />
                       <Route path="/login" element={<Login />} />
                       <Route path="/registro" element={<Register />} />
+                      <Route path="/recuperar-password" element={<ForgotPassword />} />
+                      <Route path="/reset-password/:token" element={<ResetPassword />} />
                       <Route path="/catalogo" element={<Catalogo />} />
                       <Route path="/producto/:id" element={<ProductDetail />} />
                       <Route path="/carrito" element={<Cart />} />

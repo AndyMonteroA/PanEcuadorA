@@ -1,0 +1,148 @@
+================================================================================
+CREDENCIALES Y ACCESOS DEL PROYECTO — PANECUADOR
+================================================================================
+
+Este documento contiene un registro organizado de todas las credenciales,
+usuarios y accesos que hemos configurado para el servidor VPS y la base de datos.
+
+Guarda este archivo en un lugar seguro.
+
+================================================================================
+1. ACCESO AL SERVIDOR VPS (LINUX)
+================================================================================
+
+*   IP DEL SERVIDOR: (La IP pública de tu VPS de Hostinger, ej. srv1732987.hostinger.org o similar)
+*   DOMINIO: https://panecuador.online
+
+--------------------------------------------------------------------------------
+USUARIO: root (Superusuario)
+--------------------------------------------------------------------------------
+*   Usuario: root
+*   Contraseña: [Definida por ti en el panel de Hostinger]
+*   SSH Port: 22
+*   Descripción: Usuario administrador total. Utilizado para configuraciones de
+    infraestructura (instalar paquetes, crear usuarios, configurar Nginx, etc.).
+
+--------------------------------------------------------------------------------
+USUARIO: deploy (Administrador Diario y Despliegues)
+--------------------------------------------------------------------------------
+*   Usuario: deploy
+*   Contraseña: PanEcuador2026!
+*   SSH Port: 22
+*   Grupos: sudo, webapps
+*   Shell: /bin/bash (Tiene acceso SSH habilitado)
+*   Descripción: Usuario para conectarse a diario. Puede ejecutar comandos como
+    administrador usando la palabra 'sudo' y su contraseña. Es dueño de la carpeta
+    del proyecto /var/www/panecuador.
+
+--------------------------------------------------------------------------------
+USUARIO: panecuador (Servicio del Backend)
+--------------------------------------------------------------------------------
+*   Usuario: panecuador
+*   Contraseña: [No tiene contraseña / Bloqueada por seguridad]
+*   Shell: /usr/sbin/nologin (Tiene el acceso SSH bloqueado)
+*   Grupos: webapps
+*   Descripción: Usuario de servicio creado únicamente para ejecutar el backend
+    de Node.js (con PM2) bajo privilegios mínimos. No puede iniciar sesión.
+
+--------------------------------------------------------------------------------
+USUARIO: www-data (Servidor Web Nginx)
+--------------------------------------------------------------------------------
+*   Usuario: www-data
+*   Contraseña: [No tiene contraseña / Bloqueada por seguridad]
+*   Shell: /usr/sbin/nologin
+*   Grupos: webapps
+*   Descripción: Usuario nativo del sistema que corre el servidor Nginx y lee
+    los archivos estáticos del frontend.
+
+================================================================================
+2. ACCESOS A LA BASE DE DATOS (POSTGRESQL)
+================================================================================
+
+*   DATABASE NAME (Nombre de BD): panaderia_db
+*   HOST: localhost (127.0.0.1)
+*   PORT (Puerto): 5432
+
+--------------------------------------------------------------------------------
+ROL: postgres (Superusuario BD)
+--------------------------------------------------------------------------------
+*   Rol: postgres
+*   Contraseña: [Sin contraseña en local - Usa método PEER]
+*   Cómo conectar: Desde root o usando sudo en la terminal:
+    sudo -iu postgres psql
+*   Descripción: Administrador general del motor de bases de datos.
+
+--------------------------------------------------------------------------------
+ROL: admin_pan (Usuario de la Aplicación)
+--------------------------------------------------------------------------------
+*   Rol: admin_pan
+*   Contraseña: panecuador2026
+*   Cómo conectar:
+    psql -h localhost -U admin_pan -d panaderia_db
+*   Descripción: Usuario que usa el backend de Node.js en su archivo .env.
+    Tiene permisos de SELECT, INSERT, UPDATE, DELETE en las tablas.
+    No puede borrar tablas (DROP) ni alterar la estructura (DDL).
+
+--------------------------------------------------------------------------------
+ROL: readonly_pan (Usuario de Reportes y Backups)
+--------------------------------------------------------------------------------
+*   Rol: readonly_pan
+*   Contraseña: ReadOnly_Pan2026
+*   Cómo conectar:
+    psql -h localhost -U readonly_pan -d panaderia_db
+*   Descripción: Usuario con permisos estrictos de solo lectura (SELECT).
+    Utilizado para auditorías, reportes y por el script de backup.
+
+================================================================================
+3. CONFIGURACIÓN DEL APLICATIVO
+================================================================================
+
+*   Ruta del proyecto: /var/www/panecuador
+*   Puerto de la API Node.js (Backend): 5000
+*   Servicio PM2 Systemd: pm2-panecuador
+*   Ruta de uploads (Imágenes): /var/www/panecuador/panecuador-backend/uploads
+*   Script de backup automático: /usr/local/bin/backup-panecuador.sh
+*   Carpeta de almacenamiento de backups: /var/backups/postgresql/ (se guardan comprimidos .sql.gz)
+
+================================================================================
+4. CREDENCIALES DE PRUEBA (PRODUCTORES Y TRABAJADORES)
+================================================================================
+
+Estas cuentas están precargadas en la base de datos a través de las migraciones
+SQL (06_complete_data.sql y 09_create_workers_accounts.sql).
+
+--------------------------------------------------------------------------------
+PRODUCTORES (Rol: productor)
+--------------------------------------------------------------------------------
+*   Panadería Don Pancho:
+    - Email: donpancho@panecuador.ec
+    - Contraseña: Productor2026!
+*   Dulces Tradiciones:
+    - Email: dulces@panecuador.ec
+    - Contraseña: Productor2026!
+*   La Casa del Pan:
+    - Email: casadelpan@panecuador.ec
+    - Contraseña: Productor2026!
+
+--------------------------------------------------------------------------------
+TRABAJADORES / COCINEROS (Rol: trabajador)
+--------------------------------------------------------------------------------
+*   Carlos Mendoza (Asignado a: Don Pancho):
+    - Email: carlos@panecuador.online
+    - Contraseña: Carlos2026!
+*   Ana Pacheco (Asignado a: Don Pancho):
+    - Email: ana@panecuador.online
+    - Contraseña: Ana2026!
+*   María Flores (Asignado a: Dulces Tradiciones):
+    - Email: maria@panecuador.online
+    - Contraseña: Maria2026!
+*   Luis Cevallos (Asignado a: Dulces Tradiciones):
+    - Email: luis@panecuador.online
+    - Contraseña: Luis2026!
+*   José Guamán (Asignado a: La Casa del Pan):
+    - Email: jose@panecuador.online
+    - Contraseña: Jose2026!
+*   Rosa Toapanta (Asignado a: La Casa del Pan):
+    - Email: rosa@panecuador.online
+    - Contraseña: Rosa2026!
+
