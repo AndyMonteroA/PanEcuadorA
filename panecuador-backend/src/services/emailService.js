@@ -184,4 +184,23 @@ async function sendOrderConfirmationEmail(email, nombre, pedido, items) {
   }
 }
 
+/**
+ * Verificar que el transporter está configurado
+ */
+async function verifyEmailConfig() {
+  try {
+    if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
+      console.warn('⚠️ Variables de email no configuradas (MAIL_USER, MAIL_PASS)');
+      return false;
+    }
+    await transporter.verify();
+    console.log('✅ Servicio de email configurado correctamente');
+    return true;
+  } catch (error) {
+    console.warn('⚠️ No se pudo verificar el servicio de email:', error.message);
+    return false;
+  }
+}
+
 module.exports = { sendPasswordResetEmail, sendOrderConfirmationEmail, verifyEmailConfig };
+
