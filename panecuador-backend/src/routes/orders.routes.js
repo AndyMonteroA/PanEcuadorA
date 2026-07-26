@@ -453,17 +453,19 @@ router.post('/validate-coupon', authMiddleware, async (req, res, next) => {
 
     const cupon = cuponResult.rows[0];
 
-    // Verificar si el usuario ya utilizó este cupón anteriormente
-    const usoPrevio = await pool.query(
-      'SELECT 1 FROM uso_cupones_usuario WHERE id_cupon = $1 AND id_usuario = $2',
-      [cupon.id_cupon, req.user.id]
-    );
+    // Verificar si el usuario ya utilizó este cupón anteriormente (si no es de uso múltiple)
+    if (!cupon.es_multiuso_usuario) {
+      const usoPrevio = await pool.query(
+        'SELECT 1 FROM uso_cupones_usuario WHERE id_cupon = $1 AND id_usuario = $2',
+        [cupon.id_cupon, req.user.id]
+      );
 
-    if (usoPrevio.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Ya has utilizado el cupón "${cupon.codigo}". Válido solo 1 vez por usuario.`
-      });
+      if (usoPrevio.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Ya has utilizado el cupón "${cupon.codigo}". Válido solo 1 vez por usuario.`
+        });
+      }
     }
 
     const subtotalVal = parseFloat(subtotal) || 0;

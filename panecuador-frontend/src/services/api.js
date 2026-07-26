@@ -190,6 +190,7 @@ export const adminAPI = {
   createCoupon: (data) => api.post('/admin/coupons', data),
   updateCoupon: (id, data) => api.put(`/admin/coupons/${id}`, data),
   deleteCoupon: (id) => api.delete(`/admin/coupons/${id}`),
+  sendCouponCampaign: (id, data) => api.post(`/admin/coupons/${id}/send-campaign`, data),
 
   // Stock Renewal
   renewStock: (id, stock) => api.post(`/admin/products/${id}/renew-stock`, { stock }),

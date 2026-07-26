@@ -284,10 +284,61 @@ async function sendStockAlertEmail(email, nombre, productoNombre, productoId) {
   }
 }
 
+/**
+ * Enviar email de cupón promocional a clientes
+ */
+async function sendCouponEmail(email, nombre, codigo, tipoDescuento, valor, fechaVencimiento) {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://panecuador.online';
+  const textoDescuento = tipoDescuento === 'porcentaje' ? `${valor}% DE DESCUENTO` : `$${parseFloat(valor).toFixed(2)} DE DESCUENTO`;
+
+  const mailOptions = {
+    from: process.env.MAIL_FROM || `PanEcuador <${process.env.MAIL_USER}>`,
+    to: email,
+    subject: `🎁 ¡Tienes un cupón exclusivo de ${textoDescuento}! — PanEcuador`,
+    html: `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #FFF9F3; border-radius: 12px; overflow: hidden; border: 1px solid #F0E6D9;">
+        <div style="background: linear-gradient(135deg, #3E2723, #5D4037); padding: 32px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">🍞 PanEcuador</h1>
+          <p style="color: #D4A017; margin: 8px 0 0; font-weight: 600;">🎁 ¡Regalo Especial para Ti!</p>
+        </div>
+        <div style="padding: 32px; text-align: center;">
+          <p style="color: #333; font-size: 16px;">Hola <strong>${nombre}</strong>,</p>
+          <p style="color: #555; line-height: 1.6;">
+            Queremos premiar tu preferencia en PanEcuador con un cupón de descuento especial para tu próxima compra de pan fresco y pasteles artesanales.
+          </p>
+          
+          <div style="background: #FEF3C7; border: 2px dashed #C47F3B; border-radius: 12px; padding: 24px; margin: 24px 0; text-align: center;">
+            <span style="font-size: 14px; color: #92400E; font-weight: 600;">TU CÓDIGO DE CUPÓN:</span><br/>
+            <strong style="font-size: 28px; color: #C47F3B; letter-spacing: 3px; display: inline-block; margin: 8px 0;">${codigo}</strong><br/>
+            <span style="font-size: 16px; color: #78350F; font-weight: bold;">${textoDescuento}</span>
+            ${fechaVencimiento ? `<p style="font-size: 12px; color: #92400E; margin: 8px 0 0 0;">Válido hasta: ${new Date(fechaVencimiento).toLocaleDateString('es-EC')}</p>` : ''}
+          </div>
+
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="${frontendUrl}/catalogo"
+               style="background: linear-gradient(135deg, #C47F3B, #D4A017); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; display: inline-block;">
+              Usar mi Cupón Ahora 🛍️
+            </a>
+          </div>
+        </div>
+      </div>
+    `
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    return true;
+  } catch (error) {
+    console.error('❌ Error enviando email de cupón:', error);
+    return false;
+  }
+}
+
 module.exports = {
   sendPasswordResetEmail,
   sendOrderConfirmationEmail,
   sendOrderStatusEmail,
   sendStockAlertEmail,
+  sendCouponEmail,
   verifyEmailConfig
 };

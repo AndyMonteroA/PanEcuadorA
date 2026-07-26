@@ -7,7 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const { renovarStock } = require('../services/stockRotation');
 const { generarTurnosSemana, obtenerTurnoActual } = require('../services/shiftScheduler');
-const { sendOrderStatusEmail, sendStockAlertEmail } = require('../services/emailService');
+const { sendOrderStatusEmail, sendStockAlertEmail, sendCouponEmail } = require('../services/emailService');
 
 // ============================================================
 // CONFIGURACIÓN DE MULTER (subida de imágenes)
@@ -1081,14 +1081,15 @@ router.get('/coupons', async (req, res, next) => {
 
 router.post('/coupons', async (req, res, next) => {
   try {
-    const { codigo, tipo_descuento, valor, fecha_vencimiento, usos_maximos } = req.body;
+    const { codigo, tipo_descuento, valor, fecha_vencimiento, usos_maximos, es_multiuso_usuario } = req.body;
     if (!codigo || !tipo_descuento || !valor) {
       return res.status(400).json({ success: false, message: 'Código, tipo y valor son obligatorios.' });
     }
     const result = await pool.query(
-      `INSERT INTO cupones (codigo, tipo_descuento, valor, fecha_vencimiento, usos_maximos)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [codigo.toUpperCase(), tipo_descuento, parseFloat(valor), fecha_vencimiento || null, usos_maximos || null]
+      `INSERT INTO cupones (codigo, tipo_descuento, valor, fecha_vencimiento, usos_maximos, es_multiuso_usuario)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [codigo.toUpperCase(), tipo_descuento, parseFloat(valor), fecha_vencimiento || null, usos_maximos || null,
+       es_multiuso_usuario === 'true' || es_multiuso_usuario === true]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -1101,7 +1102,7 @@ router.post('/coupons', async (req, res, next) => {
 
 router.put('/coupons/:id', async (req, res, next) => {
   try {
-    const { codigo, tipo_descuento, valor, fecha_vencimiento, usos_maximos, activo } = req.body;
+    const { codigo, tipo_descuento, valor, fecha_vencimiento, usos_maximos, activo, es_multiuso_usuario } = req.body;
     const result = await pool.query(
       `UPDATE cupones SET
         codigo = COALESCE($1, codigo),
@@ -1109,16 +1110,68 @@ router.put('/coupons/:id', async (req, res, next) => {
         valor = COALESCE($3, valor),
         fecha_vencimiento = COALESCE($4, fecha_vencimiento),
         usos_maximos = COALESCE($5, usos_maximos),
-        activo = COALESCE($6, activo)
-       WHERE id_cupon = $7 RETURNING *`,
+        activo = COALESCE($6, activo),
+        es_multiuso_usuario = COALESCE($7, es_multiuso_usuario)
+       WHERE id_cupon = $8 RETURNING *`,
       [codigo || null, tipo_descuento || null, valor ? parseFloat(valor) : null,
        fecha_vencimiento, usos_maximos ? parseInt(usos_maximos) : null,
-       activo !== undefined ? (activo === 'true' || activo === true) : null, req.params.id]
+       activo !== undefined ? (activo === 'true' || activo === true) : null,
+       es_multiuso_usuario !== undefined ? (es_multiuso_usuario === 'true' || es_multiuso_usuario === true) : null,
+       req.params.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Cupón no encontrado.' });
     }
     res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/coupons/:id/send-campaign
+ * Enviar cupón promocional a clientes por email e in-app
+ */
+router.post('/coupons/:id/send-campaign', async (req, res, next) => {
+  try {
+    const { tipo_audiencia = 'todos' } = req.body;
+    const couponRes = await pool.query('SELECT * FROM cupones WHERE id_cupon = $1', [req.params.id]);
+    if (couponRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Cupón no encontrado.' });
+    }
+    const cupon = couponRes.rows[0];
+
+    let userQuery = `SELECT id_usuario, email, nombre FROM usuarios WHERE activo = TRUE`;
+    if (tipo_audiencia === 'fieles') {
+      userQuery = `
+        SELECT u.id_usuario, u.email, u.nombre
+        FROM usuarios u
+        JOIN pedidos p ON u.id_usuario = p.id_usuario
+        WHERE u.activo = TRUE
+        GROUP BY u.id_usuario, u.email, u.nombre
+        HAVING COUNT(p.id_pedido) >= 2
+      `;
+    }
+
+    const users = await pool.query(userQuery);
+    let enviados = 0;
+
+    for (const u of users.rows) {
+      const textoDescuento = cupon.tipo_descuento === 'porcentaje' ? `${cupon.valor}%` : `$${parseFloat(cupon.valor).toFixed(2)}`;
+      await pool.query(
+        `INSERT INTO notificaciones (id_usuario, tipo, mensaje)
+         VALUES ($1, 'cupon', $2)`,
+        [u.id_usuario, `🎁 ¡Tienes un cupón exclusivo! Usa el código ${cupon.codigo} para un descuento de ${textoDescuento}.`]
+      );
+
+      sendCouponEmail(u.email, u.nombre, cupon.codigo, cupon.tipo_descuento, cupon.valor, cupon.fecha_vencimiento);
+      enviados++;
+    }
+
+    res.json({
+      success: true,
+      message: `Campaña enviada con éxito a ${enviados} clientes (${tipo_audiencia === 'fieles' ? 'Clientes Fieles TOP' : 'Todos los Clientes'}).`
+    });
   } catch (error) {
     next(error);
   }
