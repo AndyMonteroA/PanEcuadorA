@@ -1153,3 +1153,61 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+   BI DASHBOARD STYLES
+   ============================================================ */
+
+.admin-reports-page {
+  padding-bottom: 2rem;
+}
+
+.bi-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-xl);
+  margin-top: var(--space-xl);
+}
+
+.bi-chart-card {
+  padding: 1.5rem;
+  background: var(--admin-bg-card);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  margin-top: var(--space-lg);
+}
+
+.bi-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.bi-chart-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.bi-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(196, 127, 59, 0.12);
+  color: var(--color-primary-light);
+  border: 1px solid rgba(196, 127, 59, 0.2);
+}
+
+@media (max-width: 1024px) {
+  .bi-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+

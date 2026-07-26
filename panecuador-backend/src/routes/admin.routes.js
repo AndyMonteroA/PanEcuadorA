@@ -138,6 +138,142 @@ router.get('/stats', async (req, res, next) => {
   }
 });
 
+/**
+ * GET /api/admin/reports
+ * Inteligencia de Negocios (BI) — Datos analíticos completos para gráficos
+ */
+router.get('/reports', async (req, res, next) => {
+  try {
+    // 1. Ventas diarias (Últimos 30 días)
+    const ventasDiarias = await pool.query(`
+      SELECT 
+        TO_CHAR(d.fecha, 'DD/MM') AS fecha,
+        COALESCE(SUM(p.total), 0) AS total_ventas,
+        COUNT(p.id_pedido) AS cantidad_pedidos
+      FROM (
+        SELECT generate_series(CURRENT_DATE - INTERVAL '29 days', CURRENT_DATE, '1 day'::interval)::date AS fecha
+      ) d
+      LEFT JOIN pedidos p ON DATE(p.fecha_pedido) = d.fecha AND p.estado != 'cancelado'
+      GROUP BY d.fecha
+      ORDER BY d.fecha ASC
+    `);
+
+    // 2. Top 10 productos más vendidos con ingresos y calificación promedio
+    const topProductosBI = await pool.query(`
+      SELECT 
+        pr.nombre,
+        COALESCE(SUM(dp.cantidad), 0)::int AS cantidad_vendida,
+        COALESCE(SUM(dp.subtotal), 0)::float AS ingresos_totales,
+        COALESCE(ROUND(AVG(r.calificacion), 1), 0)::float AS rating_promedio
+      FROM productos pr
+      LEFT JOIN detalle_pedido dp ON pr.id_producto = dp.id_producto
+      LEFT JOIN pedidos p ON dp.id_pedido = p.id_pedido AND p.estado != 'cancelado'
+      LEFT JOIN reseñas r ON pr.id_producto = r.id_producto
+      GROUP BY pr.id_producto, pr.nombre
+      ORDER BY cantidad_vendida DESC
+      LIMIT 10
+    `);
+
+    // 3. Ventas por categoría
+    const ventasPorCategoria = await pool.query(`
+      SELECT 
+        COALESCE(c.nombre, 'Sin Categoría') AS categoria,
+        COALESCE(SUM(dp.subtotal), 0)::float AS total_ingresos,
+        COALESCE(SUM(dp.cantidad), 0)::int AS total_unidades
+      FROM categorias c
+      JOIN productos pr ON c.id_categoria = pr.id_categoria
+      JOIN detalle_pedido dp ON pr.id_producto = dp.id_producto
+      JOIN pedidos p ON dp.id_pedido = p.id_pedido AND p.estado != 'cancelado'
+      GROUP BY c.id_categoria, c.nombre
+      ORDER BY total_ingresos DESC
+    `);
+
+    // 4. Registro de usuarios por semana (últimas 8 semanas)
+    const usuariosPorSemana = await pool.query(`
+      SELECT 
+        TO_CHAR(DATE_TRUNC('week', fecha_registro), '"Sem" IW (DD/MM)') AS semana,
+        COUNT(*)::int AS nuevos_usuarios
+      FROM usuarios
+      WHERE fecha_registro >= CURRENT_DATE - INTERVAL '8 weeks'
+      GROUP BY DATE_TRUNC('week', fecha_registro)
+      ORDER BY DATE_TRUNC('week', fecha_registro) ASC
+    `);
+
+    // 5. Rendimiento de productores (ventas e ingresos generados por cada artesano/productor)
+    const rendimientoProductores = await pool.query(`
+      SELECT 
+        pr.nombre_negocio AS productor,
+        COUNT(DISTINCT p.id_pedido)::int AS pedidos_atendidos,
+        COALESCE(SUM(dp.subtotal), 0)::float AS total_generado,
+        COUNT(DISTINCT prod.id_producto)::int AS total_productos
+      FROM productores pr
+      JOIN productos prod ON pr.id_productor = prod.id_productor
+      LEFT JOIN detalle_pedido dp ON prod.id_producto = dp.id_producto
+      LEFT JOIN pedidos p ON dp.id_pedido = p.id_pedido AND p.estado != 'cancelado'
+      GROUP BY pr.id_productor, pr.nombre_negocio
+      ORDER BY total_generado DESC
+    `);
+
+    // 6. Uso de Cupones y Membresías PanPass
+    const cuponesUsados = await pool.query(`
+      SELECT 
+        c.codigo,
+        c.tipo_descuento,
+        c.valor,
+        c.usos_actuales::int AS usos
+      FROM cupones c
+      ORDER BY c.usos_actuales DESC
+      LIMIT 5
+    `);
+
+    const panpassStats = await pool.query(`
+      SELECT 
+        m.nombre AS membresia,
+        COUNT(su.id_suscripcion)::int AS suscripciones_activas
+      FROM membresias m
+      LEFT JOIN suscripciones_usuario su ON m.id_membresia = su.id_membresia AND su.estado = 'activa'
+      GROUP BY m.id_membresia, m.nombre
+    `);
+
+    // 7. KPIs de Negocio Globales
+    const kpisGlobales = await pool.query(`
+      SELECT 
+        COALESCE(AVG(total), 0)::float AS ticket_promedio,
+        COUNT(*)::int AS total_pedidos_historico,
+        SUM(CASE WHEN estado = 'cancelado' THEN 1 ELSE 0 END)::int AS pedidos_cancelados,
+        SUM(CASE WHEN estado = 'entregado' THEN 1 ELSE 0 END)::int AS pedidos_entregados
+      FROM pedidos
+    `);
+
+    const devolucionesStats = await pool.query(`
+      SELECT COUNT(*)::int AS total_devoluciones FROM devoluciones
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        ventasDiarias: ventasDiarias.rows.map(r => ({ ...r, total_ventas: parseFloat(r.total_ventas), cantidad_pedidos: parseInt(r.cantidad_pedidos) })),
+        topProductos: topProductosBI.rows,
+        ventasPorCategoria: ventasPorCategoria.rows,
+        usuariosPorSemana: usuariosPorSemana.rows,
+        rendimientoProductores: rendimientoProductores.rows,
+        cuponesUsados: cuponesUsados.rows,
+        panpassStats: panpassStats.rows,
+        kpis: {
+          ticketPromedio: parseFloat(kpisGlobales.rows[0].ticket_promedio.toFixed(2)),
+          totalPedidosHistorico: parseInt(kpisGlobales.rows[0].total_pedidos_historico),
+          pedidosCancelados: parseInt(kpisGlobales.rows[0].pedidos_cancelados),
+          pedidosEntregados: parseInt(kpisGlobales.rows[0].pedidos_entregados),
+          totalDevoluciones: parseInt(devolucionesStats.rows[0].total_devoluciones)
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
 // ============================================================
 // PRODUCTOS — CRUD
 // ============================================================

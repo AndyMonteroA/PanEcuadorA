@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { FiGrid, FiBox, FiShoppingBag, FiTag, FiUsers, FiLogOut, FiArrowLeft, FiTruck, FiClock, FiPercent, FiRotateCw, FiCalendar, FiSettings } from 'react-icons/fi';
+import { FiGrid, FiBox, FiShoppingBag, FiTag, FiUsers, FiLogOut, FiArrowLeft, FiTruck, FiClock, FiPercent, FiRotateCw, FiCalendar, FiSettings, FiBarChart2 } from 'react-icons/fi';
 import './Admin.css';
 
 const PARTICLES = ['🍞', '🥐', '🥖', '🧁', '🎂', '🍰'];
@@ -43,6 +43,9 @@ export default function AdminLayout() {
         <nav className="admin-nav">
           <NavLink to="/admin" end className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}>
             <FiGrid /> Dashboard
+          </NavLink>
+          <NavLink to="/admin/reportes" className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}>
+            <FiBarChart2 /> Reportes BI
           </NavLink>
           <NavLink to="/admin/productos" className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}>
             <FiBox /> Productos

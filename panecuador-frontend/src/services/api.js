@@ -200,6 +200,7 @@ export const adminAPI = {
   getExpiringProducts: () => api.get('/admin/expiring-products'),
   generateShifts: () => api.post('/admin/generate-shifts'),
   getReturnsCount: () => api.get('/admin/returns-count'),
+  getReports: () => api.get('/admin/reports'),
 };
 
 // ============================================================

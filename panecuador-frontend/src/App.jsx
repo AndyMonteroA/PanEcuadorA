@@ -31,6 +31,7 @@ import AdminCoupons from './pages/admin/AdminCoupons';
 import AdminReturns from './pages/admin/AdminReturns';
 import AdminShifts from './pages/admin/AdminShifts';
 import AdminSiteConfig from './pages/admin/AdminSiteConfig';
+import AdminReports from './pages/admin/AdminReports';
 
 // Producer Pages
 import ProducerLayout from './pages/producer/ProducerLayout';
@@ -91,6 +92,7 @@ function App() {
               }
             >
               <Route index element={<AdminDashboard />} />
+              <Route path="reportes" element={<AdminReports />} />
               <Route path="productos" element={<AdminProducts />} />
               <Route path="pedidos" element={<AdminOrders />} />
               <Route path="categorias" element={<AdminCategories />} />
