@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiPackage, FiClock, FiMapPin, FiChevronRight, FiX, FiRefreshCw } from 'react-icons/fi';
+import { FiPackage, FiClock, FiMapPin, FiChevronRight, FiX, FiRefreshCw, FiPrinter, FiStar, FiCheckCircle } from 'react-icons/fi';
 import { ordersAPI, reviewsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import './Orders.css';
@@ -29,6 +29,13 @@ export default function Orders() {
   const [submittingReturn, setSubmittingReturn] = useState(false);
   const [returnError, setReturnError] = useState('');
   const [returnSuccess, setReturnSuccess] = useState(false);
+
+  // Review & Rating state per product item
+  const [activeReviewItem, setActiveReviewItem] = useState(null);
+  const [reviewStars, setReviewStars] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewedItems, setReviewedItems] = useState({});
 
   useEffect(() => {
     setShowReturnForm(false);
@@ -102,6 +109,114 @@ export default function Orders() {
     } finally {
       setSubmittingReturn(false);
     }
+  };
+
+  const handleReviewSubmit = async (productId) => {
+    setSubmittingReview(true);
+    try {
+      await reviewsAPI.create({
+        id_producto: productId,
+        id_pedido: selectedOrder.id_pedido,
+        calificacion: reviewStars,
+        comentario: reviewComment.trim()
+      });
+      setReviewedItems(prev => ({ ...prev, [productId]: true }));
+      setActiveReviewItem(null);
+      setReviewComment('');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error al enviar la reseña');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleDownloadPDF = (order) => {
+    const printWindow = window.open('', '_blank');
+    const itemsHtml = order.items?.map(item => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.nombre}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${item.cantidad}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">$${parseFloat(item.precio_unitario).toFixed(2)}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">$${parseFloat(item.subtotal).toFixed(2)}</td>
+      </tr>
+    `).join('') || '';
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Comprobante Pedido #${order.id_pedido} — PanEcuador</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #333; max-width: 800px; margin: 0 auto; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #C47F3B; padding-bottom: 20px; margin-bottom: 30px; }
+          .logo { font-size: 26px; font-weight: bold; color: #C47F3B; }
+          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+          .info-box { background: #FFF9F3; padding: 16px; border-radius: 8px; border: 1px solid #F0E6D9; font-size: 14px; line-height: 1.6; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+          th { background: #3E2723; color: white; padding: 12px; text-align: left; font-size: 14px; }
+          .totals { text-align: right; font-size: 15px; }
+          .totals div { margin-bottom: 6px; }
+          .total-final { font-size: 22px; font-weight: bold; color: #C47F3B; border-top: 2px solid #C47F3B; padding-top: 8px; margin-top: 8px; }
+          .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="logo">🍞 PanEcuador</div>
+            <div style="font-size: 13px; color: #666;">Plataforma Digital de Panadería Artesanal</div>
+          </div>
+          <div style="text-align: right;">
+            <h2 style="margin: 0; color: #333;">COMPROBANTE DE COMPRA</h2>
+            <strong style="color: #C47F3B; font-size: 18px;">#PED-${order.id_pedido}</strong>
+            <div style="font-size: 12px; color: #666;">${new Date(order.fecha_pedido).toLocaleDateString('es-EC')}</div>
+          </div>
+        </div>
+
+        <div class="info-grid">
+          <div class="info-box">
+            <strong>Datos del Envío:</strong><br/>
+            Dirección: ${order.calle || ''}, ${order.ciudad || ''}, ${order.provincia || ''}<br/>
+            Estado del Pedido: <span style="text-transform: capitalize; font-weight: bold;">${order.estado}</span>
+          </div>
+          <div class="info-box">
+            <strong>Logística y Horario:</strong><br/>
+            Fecha de Entrega: ${order.fecha_entrega_programada ? new Date(order.fecha_entrega_programada).toLocaleDateString('es-EC') : 'Programada en sistema'}<br/>
+            Franja Horaria: ${order.franja_horaria || '09:00 - 12:00'}
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th style="text-align: center;">Cant.</th>
+              <th style="text-align: right;">Precio Unit.</th>
+              <th style="text-align: right;">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+
+        <div class="totals">
+          <div>Subtotal: $${parseFloat(order.subtotal).toFixed(2)}</div>
+          ${parseFloat(order.descuento) > 0 ? `<div style="color: #22c55e;">Descuento Aplicado: -$${parseFloat(order.descuento).toFixed(2)}</div>` : ''}
+          <div class="total-final">Total Pagado: $${parseFloat(order.total).toFixed(2)}</div>
+        </div>
+
+        <div class="footer">
+          <p>¡Gracias por tu compra en PanEcuador! 🥖 Documento generado electrónicamente para comprobante oficial del cliente.</p>
+        </div>
+        <script>
+          window.onload = function() { window.print(); }
+        </script>
+      </body>
+      </html>
+    `;
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
   };
 
   const formatDate = (d) => new Date(d).toLocaleDateString('es-EC', {
@@ -183,13 +298,18 @@ export default function Orders() {
               ) : (
                 <>
                   <div className="modal-header">
-                    <h2>Pedido #{selectedOrder.id_pedido}</h2>
-                    <span className="order-status" style={{
-                      background: (estadoConfig[selectedOrder.estado]?.color || '#888') + '18',
-                      color: estadoConfig[selectedOrder.estado]?.color || '#888'
-                    }}>
-                      {estadoConfig[selectedOrder.estado]?.icon} {estadoConfig[selectedOrder.estado]?.label}
-                    </span>
+                    <div>
+                      <h2>Pedido #{selectedOrder.id_pedido}</h2>
+                      <span className="order-status" style={{
+                        background: (estadoConfig[selectedOrder.estado]?.color || '#888') + '18',
+                        color: estadoConfig[selectedOrder.estado]?.color || '#888'
+                      }}>
+                        {estadoConfig[selectedOrder.estado]?.icon} {estadoConfig[selectedOrder.estado]?.label}
+                      </span>
+                    </div>
+                    <button className="btn btn-secondary btn-sm" onClick={() => handleDownloadPDF(selectedOrder)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <FiPrinter size={15} /> Comprobante PDF
+                    </button>
                   </div>
 
                   {/* Timeline */}
@@ -211,15 +331,57 @@ export default function Orders() {
                     <h3>Productos</h3>
                     <div className="order-items-list">
                       {selectedOrder.items?.map((item, idx) => (
-                        <div key={idx} className="order-item">
-                          <div className="order-item-img">
-                            {item.imagen ? <img src={item.imagen} alt="" /> : <span>🍞</span>}
+                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <div className="order-item">
+                            <div className="order-item-img">
+                              {item.imagen ? <img src={item.imagen} alt="" /> : <span>🍞</span>}
+                            </div>
+                            <div className="order-item-info">
+                              <strong>{item.nombre}</strong>
+                              <span>{item.cantidad}x ${parseFloat(item.precio_unitario).toFixed(2)}</span>
+                            </div>
+                            <span className="order-item-total">${parseFloat(item.subtotal).toFixed(2)}</span>
                           </div>
-                          <div className="order-item-info">
-                            <strong>{item.nombre}</strong>
-                            <span>{item.cantidad}x ${parseFloat(item.precio_unitario).toFixed(2)}</span>
-                          </div>
-                          <span className="order-item-total">${parseFloat(item.subtotal).toFixed(2)}</span>
+
+                          {/* Option to rate delivered item */}
+                          {selectedOrder.estado === 'entregado' && (
+                            reviewedItems[item.id_producto] ? (
+                              <div style={{ fontSize: '0.78rem', color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <FiCheckCircle /> Reseña enviada con éxito
+                              </div>
+                            ) : activeReviewItem === item.id_producto ? (
+                              <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Calificación:</span>
+                                  {[1, 2, 3, 4, 5].map(star => (
+                                    <FiStar key={star} size={16}
+                                      style={{ cursor: 'pointer', color: star <= reviewStars ? '#F59E0B' : '#666', fill: star <= reviewStars ? '#F59E0B' : 'transparent' }}
+                                      onClick={() => setReviewStars(star)} />
+                                  ))}
+                                </div>
+                                <textarea
+                                  placeholder="Escribe tu comentario sobre este producto..."
+                                  value={reviewComment}
+                                  onChange={e => setReviewComment(e.target.value)}
+                                  rows={2}
+                                  style={{ width: '100%', padding: '8px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontSize: '0.8rem' }}
+                                />
+                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                  <button className="btn btn-secondary btn-sm" onClick={() => setActiveReviewItem(null)} style={{ fontSize: '0.75rem' }}>
+                                    Cancelar
+                                  </button>
+                                  <button className="btn btn-primary btn-sm" onClick={() => handleReviewSubmit(item.id_producto)} disabled={submittingReview} style={{ fontSize: '0.75rem' }}>
+                                    {submittingReview ? 'Enviando...' : 'Publicar Reseña'}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button className="btn btn-secondary btn-sm" style={{ alignSelf: 'flex-start', fontSize: '0.75rem', padding: '4px 10px', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                onClick={() => { setActiveReviewItem(item.id_producto); setReviewStars(5); setReviewComment(''); }}>
+                                <FiStar size={13} /> Calificar producto
+                              </button>
+                            )
+                          )}
                         </div>
                       ))}
                     </div>

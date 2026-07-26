@@ -101,27 +101,28 @@ router.post('/', authMiddleware, async (req, res, next) => {
     if (codigo_cupon) {
       const cuponResult = await client.query(
         `SELECT * FROM cupones 
-         WHERE codigo = $1 AND activo = TRUE 
+         WHERE UPPER(codigo) = UPPER($1) AND activo = TRUE 
          AND (fecha_vencimiento IS NULL OR fecha_vencimiento >= CURRENT_DATE)
          AND (usos_maximos IS NULL OR usos_actuales < usos_maximos)`,
-        [codigo_cupon]
+        [codigo_cupon.trim()]
       );
 
       if (cuponResult.rows.length > 0) {
         const cupon = cuponResult.rows[0];
-        idCupon = cupon.id_cupon;
 
-        if (cupon.tipo_descuento === 'porcentaje') {
-          descuento = subtotal * (parseFloat(cupon.valor) / 100);
-        } else {
-          descuento = parseFloat(cupon.valor);
-        }
-
-        // Incrementar uso del cupón
-        await client.query(
-          'UPDATE cupones SET usos_actuales = usos_actuales + 1 WHERE id_cupon = $1',
-          [idCupon]
+        const usoPrevio = await client.query(
+          'SELECT 1 FROM uso_cupones_usuario WHERE id_cupon = $1 AND id_usuario = $2',
+          [cupon.id_cupon, userId]
         );
+
+        if (usoPrevio.rows.length === 0) {
+          idCupon = cupon.id_cupon;
+          if (cupon.tipo_descuento === 'porcentaje') {
+            descuento = subtotal * (parseFloat(cupon.valor) / 100);
+          } else {
+            descuento = parseFloat(cupon.valor);
+          }
+        }
       }
     }
 
@@ -184,6 +185,17 @@ router.post('/', authMiddleware, async (req, res, next) => {
         notas_cliente || null]);
 
     const pedido = pedidoResult.rows[0];
+
+    // Incrementar uso del cupón y registrar uso único por el usuario
+    if (idCupon) {
+      await client.query('UPDATE cupones SET usos_actuales = usos_actuales + 1 WHERE id_cupon = $1', [idCupon]);
+      await client.query(
+        `INSERT INTO uso_cupones_usuario (id_cupon, id_usuario, id_pedido)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (id_cupon, id_usuario) DO NOTHING`,
+        [idCupon, userId, pedido.id_pedido]
+      );
+    }
 
     // 10. Crear detalle del pedido y actualizar stock
     for (const item of items) {
@@ -440,6 +452,20 @@ router.post('/validate-coupon', authMiddleware, async (req, res, next) => {
     }
 
     const cupon = cuponResult.rows[0];
+
+    // Verificar si el usuario ya utilizó este cupón anteriormente
+    const usoPrevio = await pool.query(
+      'SELECT 1 FROM uso_cupones_usuario WHERE id_cupon = $1 AND id_usuario = $2',
+      [cupon.id_cupon, req.user.id]
+    );
+
+    if (usoPrevio.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Ya has utilizado el cupón "${cupon.codigo}". Válido solo 1 vez por usuario.`
+      });
+    }
+
     const subtotalVal = parseFloat(subtotal) || 0;
     let descuento = 0;
 
