@@ -379,6 +379,26 @@
 
 @media (max-width: 768px) {
   .orders-filters { flex-wrap: nowrap; }
-  .order-timeline { overflow-x: auto; gap: var(--space-md); }
   .modal-content { padding: var(--space-lg); }
+}
+
+@media (max-width: 600px) {
+  .order-timeline {
+    overflow-x: auto;
+    justify-content: flex-start;
+    gap: 24px;
+    padding: 12px 10px;
+    scrollbar-width: none;
+  }
+  .order-timeline::-webkit-scrollbar {
+    display: none;
+  }
+  .timeline-step {
+    min-width: 75px;
+  }
+  .order-timeline::before {
+    top: 30px;
+    left: 20px;
+    right: 20px;
+  }
 }
