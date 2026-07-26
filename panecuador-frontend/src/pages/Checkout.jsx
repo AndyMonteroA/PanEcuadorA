@@ -99,6 +99,37 @@ export default function Checkout() {
   const [gatewayPhase, setGatewayPhase] = useState(0);
   const [gatewayMessage, setGatewayMessage] = useState('');
 
+  // Live Coupon validation
+  const [couponApplied, setCouponApplied] = useState(null);
+  const [couponMsg, setCouponMsg] = useState({ type: '', text: '' });
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+
+  const handleApplyCoupon = async (e) => {
+    if (e) e.preventDefault();
+    if (!form.codigo_cupon.trim()) {
+      setCouponMsg({ type: 'error', text: 'Ingresa un código de cupón' });
+      return;
+    }
+    setValidatingCoupon(true);
+    setCouponMsg({ type: '', text: '' });
+    try {
+      const res = await ordersAPI.validateCoupon({
+        codigo_cupon: form.codigo_cupon,
+        subtotal: resumen.subtotal
+      });
+      setCouponApplied(res.data.data);
+      setCouponMsg({
+        type: 'success',
+        text: `¡Cupón APLICADO! Descuento de $${res.data.data.monto_descuento.toFixed(2)}`
+      });
+    } catch (err) {
+      setCouponApplied(null);
+      setCouponMsg({ type: 'error', text: err.response?.data?.message || 'Cupón no válido' });
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
+
   const detectCardBrand = (number) => {
     const clean = number.replace(/\D/g, '');
     if (clean.startsWith('4')) return 'Visa';
@@ -541,8 +572,24 @@ export default function Checkout() {
               <h2><FiTag /> Cupón y notas</h2>
               <div className="input-group">
                 <label>Código de cupón</label>
-                <input className="input" placeholder="Ej: BIENVENIDO10" value={form.codigo_cupon}
-                  onChange={e => setForm({ ...form, codigo_cupon: e.target.value.toUpperCase() })} />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input className="input" placeholder="Ej: BIENVENIDO10" value={form.codigo_cupon}
+                    style={{ flex: 1 }}
+                    onChange={e => setForm({ ...form, codigo_cupon: e.target.value.toUpperCase() })} />
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={handleApplyCoupon} disabled={validatingCoupon}>
+                    {validatingCoupon ? 'Validando...' : 'Aplicar Cupón'}
+                  </button>
+                </div>
+                {couponMsg.text && (
+                  <p style={{
+                    fontSize: '0.85rem',
+                    marginTop: '6px',
+                    color: couponMsg.type === 'success' ? '#10b981' : '#ef4444',
+                    fontWeight: 500
+                  }}>
+                    {couponMsg.text}
+                  </p>
+                )}
               </div>
               <div className="input-group">
                 <label>Notas especiales</label>
@@ -574,6 +621,13 @@ export default function Checkout() {
               <span>${parseFloat(resumen.subtotal).toFixed(2)}</span>
             </div>
 
+            {couponApplied && (
+              <div className="summary-row" style={{ color: '#10b981', fontWeight: 600 }}>
+                <span>Descuento ({couponApplied.codigo})</span>
+                <span>-${couponApplied.monto_descuento.toFixed(2)}</span>
+              </div>
+            )}
+
             <div className="summary-row">
               <span><FiClock size={14} /> Elaboración estimada</span>
               <span>{formatTime(resumen.tiempoElaboracionEstimado)}</span>
@@ -583,7 +637,11 @@ export default function Checkout() {
 
             <div className="summary-row summary-total">
               <span>Total</span>
-              <span>${parseFloat(resumen.subtotal).toFixed(2)}</span>
+              <span>
+                ${(
+                  parseFloat(resumen.subtotal) - (couponApplied ? couponApplied.monto_descuento : 0)
+                ).toFixed(2)}
+              </span>
             </div>
 
             <button

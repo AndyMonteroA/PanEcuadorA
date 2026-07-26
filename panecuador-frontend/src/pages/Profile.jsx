@@ -20,6 +20,10 @@ export default function Profile() {
   const [newAddress, setNewAddress] = useState({
     alias: '', calle: '', ciudad: 'Quito', provincia: 'Pichincha', referencia: '', es_principal: true
   });
+  const [editingAddressId, setEditingAddressId] = useState(null);
+  const [editAddressForm, setEditAddressForm] = useState({
+    alias: '', calle: '', ciudad: 'Quito', provincia: 'Pichincha', referencia: ''
+  });
 
   // Payment modal form
   const [showAddPayment, setShowAddPayment] = useState(false);
@@ -77,6 +81,28 @@ export default function Profile() {
       fetchProfile();
     } catch (err) {
       alert(err.response?.data?.message || 'Error al agregar dirección');
+    }
+  };
+
+  const startEditAddress = (addr) => {
+    setEditingAddressId(addr.id_direccion);
+    setEditAddressForm({
+      alias: addr.alias || '',
+      calle: addr.calle || '',
+      ciudad: addr.ciudad || 'Quito',
+      provincia: addr.provincia || 'Pichincha',
+      referencia: addr.referencia || ''
+    });
+  };
+
+  const handleSaveEditAddress = async (e) => {
+    e.preventDefault();
+    try {
+      await usersAPI.updateAddress(editingAddressId, editAddressForm);
+      setEditingAddressId(null);
+      fetchProfile();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error al actualizar dirección');
     }
   };
 
@@ -270,15 +296,65 @@ export default function Profile() {
               {profile?.direcciones?.length > 0 ? (
                 <div className="profile-list">
                   {profile.direcciones.map(addr => (
-                    <div key={addr.id_direccion} className="profile-list-item">
-                      <div>
-                        <strong>{addr.alias || 'Dirección'} {addr.es_principal && '⭐'}</strong>
-                        <p>{addr.calle}, {addr.ciudad}, {addr.provincia}</p>
-                        {addr.referencia && <small>{addr.referencia}</small>}
-                      </div>
-                      <button className="btn-icon-sm" onClick={() => handleDeleteAddress(addr.id_direccion)}>
-                        <FiTrash2 size={16} />
-                      </button>
+                    <div key={addr.id_direccion} className="profile-list-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                      {editingAddressId === addr.id_direccion ? (
+                        <form className="inline-form" onSubmit={handleSaveEditAddress} style={{ width: '100%' }}>
+                          <input className="input" placeholder="Alias (ej: Casa, Oficina)" value={editAddressForm.alias}
+                            onChange={e => setEditAddressForm({ ...editAddressForm, alias: e.target.value })} />
+                          
+                          <div className="inline-row">
+                            <div className="input-group" style={{ flex: 1 }}>
+                              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Provincia (Ecuador)</label>
+                              <select className="input" required value={editAddressForm.provincia}
+                                onChange={e => {
+                                  const prov = e.target.value;
+                                  const firstCanton = ECUADOR_PROVINCIAS[prov]?.[0] || '';
+                                  setEditAddressForm({ ...editAddressForm, provincia: prov, ciudad: firstCanton });
+                                }}>
+                                {Object.keys(ECUADOR_PROVINCIAS).map(p => (
+                                  <option key={p} value={p}>{p}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="input-group" style={{ flex: 1 }}>
+                              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Cantón / Ciudad</label>
+                              <select className="input" required value={editAddressForm.ciudad}
+                                onChange={e => setEditAddressForm({ ...editAddressForm, ciudad: e.target.value })}>
+                                {(ECUADOR_PROVINCIAS[editAddressForm.provincia || 'Pichincha'] || []).map(c => (
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          <input className="input" placeholder="Calle principal, secundaria y # casa *" required value={editAddressForm.calle}
+                            onChange={e => setEditAddressForm({ ...editAddressForm, calle: e.target.value })} />
+
+                          <input className="input" placeholder="Referencia" value={editAddressForm.referencia}
+                            onChange={e => setEditAddressForm({ ...editAddressForm, referencia: e.target.value })} />
+                          
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                            <button type="submit" className="btn btn-primary btn-sm"><FiSave /> Actualizar</button>
+                            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditingAddressId(null)}>Cancelar</button>
+                          </div>
+                        </form>
+                      ) : (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                          <div>
+                            <strong>{addr.alias || 'Dirección'} {addr.es_principal && '⭐'}</strong>
+                            <p>{addr.calle}, {addr.ciudad}, {addr.provincia}</p>
+                            {addr.referencia && <small>{addr.referencia}</small>}
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button className="btn-icon-sm" onClick={() => startEditAddress(addr)} title="Editar dirección">
+                              <FiEdit2 size={16} />
+                            </button>
+                            <button className="btn-icon-sm" onClick={() => handleDeleteAddress(addr.id_direccion)} title="Eliminar dirección">
+                              <FiTrash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

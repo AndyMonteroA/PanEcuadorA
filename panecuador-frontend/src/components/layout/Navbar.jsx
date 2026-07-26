@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useNotifications } from '../../context/NotificationContext';
-import { FiShoppingCart, FiUser, FiSearch, FiMenu, FiX, FiBell, FiHeart, FiPackage, FiLogOut } from 'react-icons/fi';
+import { FiShoppingCart, FiUser, FiSearch, FiMenu, FiX, FiBell, FiHeart, FiPackage, FiLogOut, FiSettings, FiGrid, FiClock, FiAward, FiFolder } from 'react-icons/fi';
 import logoImg from '../../assets/logo.png';
 import { FaBreadSlice, FaBirthdayCake, FaCookie, FaIceCream, FaSeedling, FaGift, FaStar } from 'react-icons/fa';
 import { productsAPI } from '../../services/api';
@@ -165,17 +165,17 @@ export default function Navbar() {
                     <div className="dropdown-divider" />
                     {user?.rol === 'admin' && (
                       <Link to="/admin" className="dropdown-item" style={{ color: 'var(--color-primary)', fontWeight: '600' }}>
-                        🛠️ Panel de Admin
+                        <FiSettings size={16} /> Panel de Admin
                       </Link>
                     )}
                     {user?.rol === 'productor' && (
                       <Link to="/productor" className="dropdown-item" style={{ color: 'var(--color-primary)', fontWeight: '600' }}>
-                        🏪 Mi Negocio (Panel)
+                        <FiGrid size={16} /> Mi Negocio (Panel)
                       </Link>
                     )}
                     {user?.rol === 'trabajador' && (
                       <Link to="/trabajador" className="dropdown-item" style={{ color: 'var(--color-primary)', fontWeight: '600' }}>
-                        🍳 Cola de Cocina
+                        <FiClock size={16} /> Cola de Cocina
                       </Link>
                     )}
                     <Link to="/perfil" className="dropdown-item">
@@ -185,7 +185,7 @@ export default function Navbar() {
                       <FiPackage size={16} /> Mis Pedidos
                     </Link>
                     <Link to="/panpass" className="dropdown-item dropdown-panpass">
-                      ⭐ PanPass
+                      <FiAward size={16} /> PanPass
                     </Link>
                     <div className="dropdown-divider" />
                     <button onClick={handleLogout} className="dropdown-item dropdown-logout">

@@ -90,6 +90,7 @@ export const ordersAPI = {
   getAll: (params) => api.get('/orders', { params }),
   getById: (id) => api.get(`/orders/${id}`),
   cancel: (id) => api.put(`/orders/${id}/cancel`),
+  validateCoupon: (data) => api.post('/orders/validate-coupon', data),
 };
 
 // ============================================================
@@ -129,6 +130,7 @@ export const usersAPI = {
   getProfile: () => api.get('/users/profile'),
   updateProfile: (data) => api.put('/users/profile', data),
   addAddress: (data) => api.post('/users/addresses', data),
+  updateAddress: (id, data) => api.put(`/users/addresses/${id}`, data),
   deleteAddress: (id) => api.delete(`/users/addresses/${id}`),
   addPaymentMethod: (data) => api.post('/users/payment-methods', data),
 };

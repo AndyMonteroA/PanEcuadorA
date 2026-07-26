@@ -163,6 +163,42 @@ router.delete('/addresses/:id', authMiddleware, async (req, res, next) => {
 });
 
 /**
+ * PUT /api/users/addresses/:id
+ * Editar dirección existente
+ */
+router.put('/addresses/:id', authMiddleware, async (req, res, next) => {
+  try {
+    const { alias, calle, ciudad, provincia, referencia, es_principal } = req.body;
+    const userId = req.user.id;
+
+    if (es_principal) {
+      await pool.query('UPDATE direcciones SET es_principal = FALSE WHERE id_usuario = $1', [userId]);
+    }
+
+    const result = await pool.query(
+      `UPDATE direcciones SET
+        alias = COALESCE($1, alias),
+        calle = COALESCE($2, calle),
+        ciudad = COALESCE($3, ciudad),
+        provincia = COALESCE($4, provincia),
+        referencia = COALESCE($5, referencia),
+        es_principal = COALESCE($6, es_principal)
+       WHERE id_direccion = $7 AND id_usuario = $8
+       RETURNING *`,
+      [alias, calle, ciudad, provincia, referencia, es_principal, req.params.id, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Dirección no encontrada.' });
+    }
+
+    res.json({ success: true, message: 'Dirección actualizada.', data: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * POST /api/users/payment-methods
  * Agregar método de pago
  */

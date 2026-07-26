@@ -409,4 +409,56 @@ router.put('/:id/cancel', authMiddleware, async (req, res, next) => {
   }
 });
 
+/**
+ * POST /api/orders/validate-coupon
+ * Validar código de cupón y obtener el valor del descuento en tiempo real
+ */
+router.post('/validate-coupon', authMiddleware, async (req, res, next) => {
+  try {
+    const { codigo_cupon, subtotal } = req.body;
+
+    if (!codigo_cupon) {
+      return res.status(400).json({ success: false, message: 'Ingresa un código de cupón.' });
+    }
+
+    const cuponResult = await pool.query(
+      `SELECT * FROM cupones 
+       WHERE UPPER(codigo) = UPPER($1) AND activo = TRUE 
+       AND (fecha_vencimiento IS NULL OR fecha_vencimiento >= CURRENT_DATE)
+       AND (usos_maximos IS NULL OR usos_actuales < usos_maximos)`,
+      [codigo_cupon.trim()]
+    );
+
+    if (cuponResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Cupón no válido, expirado o agotado.' });
+    }
+
+    const cupon = cuponResult.rows[0];
+    const subtotalVal = parseFloat(subtotal) || 0;
+    let descuento = 0;
+
+    if (cupon.tipo_descuento === 'porcentaje') {
+      descuento = subtotalVal * (parseFloat(cupon.valor) / 100);
+    } else {
+      descuento = parseFloat(cupon.valor);
+    }
+
+    if (descuento > subtotalVal) descuento = subtotalVal;
+
+    res.json({
+      success: true,
+      data: {
+        codigo: cupon.codigo,
+        tipo_descuento: cupon.tipo_descuento,
+        valor: parseFloat(cupon.valor),
+        monto_descuento: parseFloat(descuento.toFixed(2)),
+        total_con_descuento: parseFloat((subtotalVal - descuento).toFixed(2))
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
+
