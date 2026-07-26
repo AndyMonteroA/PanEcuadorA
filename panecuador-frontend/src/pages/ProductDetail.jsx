@@ -56,7 +56,7 @@ export default function ProductDetail() {
   const handleAddToCart = async () => {
     if (!isAuthenticated) { window.location.href = '/login'; return; }
     try {
-      await addToCart(product.id_producto, quantity);
+      await addToCart(product.id_producto, quantity, product.nombre);
       setAddedMsg('¡Agregado al carrito!');
       setTimeout(() => setAddedMsg(''), 3000);
     } catch (err) {

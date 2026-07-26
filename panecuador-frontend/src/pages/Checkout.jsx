@@ -4,6 +4,7 @@ import { FiMapPin, FiCreditCard, FiClock, FiTag, FiCalendar, FiCheck, FiArrowLef
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { ordersAPI, usersAPI } from '../services/api';
+import { ECUADOR_PROVINCIAS } from '../data/ecuadorData';
 import './Checkout.css';
 
 export default function Checkout() {
@@ -139,7 +140,7 @@ export default function Checkout() {
       setAddresses([...addresses, res.data.data]);
       setForm({ ...form, id_direccion: res.data.data.id_direccion });
       setShowNewAddress(false);
-      setNewAddress({ alias: '', calle: '', ciudad: '', provincia: '', referencia: '', es_principal: true });
+      setNewAddress({ alias: '', calle: '', ciudad: 'Quito', provincia: 'Pichincha', referencia: '', es_principal: true });
     } catch (err) {
       setError(err.response?.data?.message || 'Error al agregar dirección');
     }
@@ -342,18 +343,40 @@ export default function Checkout() {
               </button>
               {showNewAddress && (
                 <form className="inline-form" onSubmit={handleAddAddress}>
-                  <input className="input" placeholder="Alias (ej: Casa)" value={newAddress.alias}
+                  <input className="input" placeholder="Alias (ej: Casa, Oficina)" value={newAddress.alias}
                     onChange={e => setNewAddress({ ...newAddress, alias: e.target.value })} />
-                  <input className="input" placeholder="Calle y número *" required value={newAddress.calle}
-                    onChange={e => setNewAddress({ ...newAddress, calle: e.target.value })} />
+                  
                   <div className="inline-row">
-                    <input className="input" placeholder="Ciudad *" required value={newAddress.ciudad}
-                      onChange={e => setNewAddress({ ...newAddress, ciudad: e.target.value })} />
-                    <input className="input" placeholder="Provincia *" required value={newAddress.provincia}
-                      onChange={e => setNewAddress({ ...newAddress, provincia: e.target.value })} />
+                    <div className="input-group" style={{ flex: 1 }}>
+                      <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Provincia (Ecuador)</label>
+                      <select className="input" required value={newAddress.provincia}
+                        onChange={e => {
+                          const prov = e.target.value;
+                          const firstCanton = ECUADOR_PROVINCIAS[prov]?.[0] || '';
+                          setNewAddress({ ...newAddress, provincia: prov, ciudad: firstCanton });
+                        }}>
+                        {Object.keys(ECUADOR_PROVINCIAS).map(p => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="input-group" style={{ flex: 1 }}>
+                      <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Cantón / Ciudad</label>
+                      <select className="input" required value={newAddress.ciudad}
+                        onChange={e => setNewAddress({ ...newAddress, ciudad: e.target.value })}>
+                        {(ECUADOR_PROVINCIAS[newAddress.provincia || 'Pichincha'] || []).map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                  <input className="input" placeholder="Referencia" value={newAddress.referencia}
+
+                  <input className="input" placeholder="Calle principal, secundaria y # de casa/dpto *" required value={newAddress.calle}
+                    onChange={e => setNewAddress({ ...newAddress, calle: e.target.value })} />
+
+                  <input className="input" placeholder="Referencia (ej: Frente al parque)" value={newAddress.referencia}
                     onChange={e => setNewAddress({ ...newAddress, referencia: e.target.value })} />
+                  
                   <button type="submit" className="btn btn-primary btn-sm">Guardar dirección</button>
                 </form>
               )}
@@ -426,10 +449,13 @@ export default function Checkout() {
                         </select>
                       </div>
                       <div className="input-group">
-                        <label>Nombre del Titular</label>
-                        <input className="input" placeholder="TITULAR DE LA TARJETA" required
+                        <label>Nombre del Titular (Solo letras)</label>
+                        <input className="input" placeholder="TITULAR DE LA TARJETA" required maxLength={40}
                           value={cardFields.name}
-                          onChange={e => setCardFields({ ...cardFields, name: e.target.value.toUpperCase() })} />
+                          onChange={e => {
+                            const cleanLetters = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+                            setCardFields({ ...cardFields, name: cleanLetters.toUpperCase() });
+                          }} />
                       </div>
                     </div>
 
