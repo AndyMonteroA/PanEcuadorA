@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FiUser, FiMapPin, FiCreditCard, FiEdit2, FiTrash2, FiPlus, FiSave, FiCheck, FiX } from 'react-icons/fi';
 import { usersAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { ECUADOR_PROVINCIAS } from '../data/ecuadorData';
+import { ECUADOR_PROVINCIAS, getCantonesByProvincia } from '../data/ecuadorData';
 import './Profile.css';
 
 export default function Profile() {
@@ -264,7 +264,8 @@ export default function Profile() {
                       <select className="input" required value={newAddress.provincia}
                         onChange={e => {
                           const prov = e.target.value;
-                          const firstCanton = ECUADOR_PROVINCIAS[prov]?.[0] || '';
+                          const cantones = getCantonesByProvincia(prov);
+                          const firstCanton = cantones[0] || '';
                           setNewAddress({ ...newAddress, provincia: prov, ciudad: firstCanton });
                         }}>
                         {Object.keys(ECUADOR_PROVINCIAS).map(p => (
@@ -276,7 +277,7 @@ export default function Profile() {
                       <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Cantón / Ciudad</label>
                       <select className="input" required value={newAddress.ciudad}
                         onChange={e => setNewAddress({ ...newAddress, ciudad: e.target.value })}>
-                        {(ECUADOR_PROVINCIAS[newAddress.provincia || 'Pichincha'] || []).map(c => (
+                        {getCantonesByProvincia(newAddress.provincia).map(c => (
                           <option key={c} value={c}>{c}</option>
                         ))}
                       </select>
@@ -308,7 +309,8 @@ export default function Profile() {
                               <select className="input" required value={editAddressForm.provincia}
                                 onChange={e => {
                                   const prov = e.target.value;
-                                  const firstCanton = ECUADOR_PROVINCIAS[prov]?.[0] || '';
+                                  const cantones = getCantonesByProvincia(prov);
+                                  const firstCanton = cantones[0] || '';
                                   setEditAddressForm({ ...editAddressForm, provincia: prov, ciudad: firstCanton });
                                 }}>
                                 {Object.keys(ECUADOR_PROVINCIAS).map(p => (
@@ -320,7 +322,7 @@ export default function Profile() {
                               <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Cantón / Ciudad</label>
                               <select className="input" required value={editAddressForm.ciudad}
                                 onChange={e => setEditAddressForm({ ...editAddressForm, ciudad: e.target.value })}>
-                                {(ECUADOR_PROVINCIAS[editAddressForm.provincia || 'Pichincha'] || []).map(c => (
+                                {getCantonesByProvincia(editAddressForm.provincia).map(c => (
                                   <option key={c} value={c}>{c}</option>
                                 ))}
                               </select>

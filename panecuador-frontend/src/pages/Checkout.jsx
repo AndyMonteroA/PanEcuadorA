@@ -4,7 +4,7 @@ import { FiMapPin, FiCreditCard, FiClock, FiTag, FiCalendar, FiCheck, FiArrowLef
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { ordersAPI, usersAPI } from '../services/api';
-import { ECUADOR_PROVINCIAS } from '../data/ecuadorData';
+import { ECUADOR_PROVINCIAS, getCantonesByProvincia } from '../data/ecuadorData';
 import './Checkout.css';
 
 export default function Checkout() {
@@ -383,7 +383,8 @@ export default function Checkout() {
                       <select className="input" required value={newAddress.provincia}
                         onChange={e => {
                           const prov = e.target.value;
-                          const firstCanton = ECUADOR_PROVINCIAS[prov]?.[0] || '';
+                          const cantones = getCantonesByProvincia(prov);
+                          const firstCanton = cantones[0] || '';
                           setNewAddress({ ...newAddress, provincia: prov, ciudad: firstCanton });
                         }}>
                         {Object.keys(ECUADOR_PROVINCIAS).map(p => (
@@ -395,7 +396,7 @@ export default function Checkout() {
                       <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Cantón / Ciudad</label>
                       <select className="input" required value={newAddress.ciudad}
                         onChange={e => setNewAddress({ ...newAddress, ciudad: e.target.value })}>
-                        {(ECUADOR_PROVINCIAS[newAddress.provincia || 'Pichincha'] || []).map(c => (
+                        {getCantonesByProvincia(newAddress.provincia).map(c => (
                           <option key={c} value={c}>{c}</option>
                         ))}
                       </select>

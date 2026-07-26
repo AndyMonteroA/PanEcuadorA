@@ -24,3 +24,13 @@ export const ECUADOR_PROVINCIAS = {
   "Tungurahua": ["Ambato", "Baños de Agua Santa", "Cevallos", "Mocha", "Patate", "Quero", "San Pedro de Pelileo", "Santiago de Píllaro", "Tisaleo"],
   "Zamora Chinchipe": ["Zamora", "Centinela del Cóndor", "Chinchipe", "El Pangui", "Nangaritza", "Palanda", "Paquisha", "Yacuambi", "Yantzaza"]
 };
+
+export function getCantonesByProvincia(provinciaName) {
+  if (!provinciaName) return ECUADOR_PROVINCIAS["Pichincha"];
+  if (ECUADOR_PROVINCIAS[provinciaName]) return ECUADOR_PROVINCIAS[provinciaName];
+  
+  const norm = (str) => String(str).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const targetNorm = norm(provinciaName);
+  const foundKey = Object.keys(ECUADOR_PROVINCIAS).find(key => norm(key) === targetNorm);
+  return foundKey ? ECUADOR_PROVINCIAS[foundKey] : ECUADOR_PROVINCIAS["Pichincha"];
+}

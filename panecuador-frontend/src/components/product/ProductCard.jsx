@@ -18,7 +18,7 @@ export default function ProductCard({ product, isFavorite: initialFav = false })
     e.stopPropagation();
     if (!isAuthenticated) { window.location.href = '/login'; return; }
     try {
-      await addToCart(product.id_producto, 1, product.nombre);
+      await addToCart(product.id_producto, 1, product.nombre, product.imagen_principal);
       setCartMsg('¡Agregado!');
       setTimeout(() => setCartMsg(''), 2000);
     } catch (err) {

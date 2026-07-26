@@ -13,9 +13,9 @@ export function CartProvider({ children }) {
   const toastTimeoutRef = useRef(null);
   const { isAuthenticated } = useAuth();
 
-  const showToast = (productName) => {
+  const showToast = (productName, productImage = '') => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    setToast({ productName });
+    setToast({ productName, productImage });
     toastTimeoutRef.current = setTimeout(() => {
       setToast(null);
     }, 3500);
@@ -35,11 +35,11 @@ export function CartProvider({ children }) {
     }
   }, [isAuthenticated]);
 
-  const addToCart = async (id_producto, cantidad = 1, productName = '') => {
+  const addToCart = async (id_producto, cantidad = 1, productName = '', productImage = '') => {
     try {
       await cartAPI.add(id_producto, cantidad);
       await fetchCart();
-      showToast(productName || 'Producto agregado a tu pedido');
+      showToast(productName || 'Producto agregado a tu pedido', productImage);
       return true;
     } catch (err) {
       throw err.response?.data?.message || 'Error al agregar al carrito';
