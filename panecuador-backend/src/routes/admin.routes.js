@@ -708,11 +708,18 @@ router.get('/orders/:id', async (req, res, next) => {
       WHERE dp.id_pedido = $1
     `, [req.params.id]);
 
+    const historialResult = await pool.query(`
+      SELECT * FROM historial_pedidos
+      WHERE id_pedido = $1
+      ORDER BY fecha_evento ASC
+    `, [req.params.id]);
+
     res.json({
       success: true,
       data: {
         ...pedido.rows[0],
-        items: detalles.rows
+        items: detalles.rows,
+        historial_eventos: historialResult.rows
       }
     });
   } catch (error) {
@@ -758,6 +765,18 @@ router.put('/orders/:id/status', async (req, res, next) => {
       await pool.query(
         "INSERT INTO notificaciones (id_usuario, tipo, mensaje) VALUES ($1, 'pedido', $2)",
         [pedido.id_usuario, mensajes[estado]]
+      );
+      const eventTitles = {
+        confirmado: 'Pedido Confirmado',
+        preparando: 'En Horneado y Preparación',
+        en_camino: 'Despachado y En Camino',
+        entregado: 'Entregado al Cliente',
+        cancelado: 'Pedido Cancelado'
+      };
+      await pool.query(
+        `INSERT INTO historial_pedidos (id_pedido, estado, titulo, descripcion, actor_rol)
+         VALUES ($1, $2, $3, $4, 'admin')`,
+        [pedido.id_pedido, estado, eventTitles[estado] || estado, mensajes[estado]]
       );
       try {
         const uRes = await pool.query('SELECT email, nombre FROM usuarios WHERE id_usuario = $1', [pedido.id_usuario]);

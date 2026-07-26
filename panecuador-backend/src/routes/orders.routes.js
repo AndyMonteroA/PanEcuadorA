@@ -205,11 +205,16 @@ router.post('/', authMiddleware, async (req, res, next) => {
     // 11. Vaciar carrito
     await client.query('DELETE FROM carrito WHERE id_usuario = $1', [userId]);
 
-    // 12. Crear notificación
+    // 12. Crear notificación e historial de evento inicial
     await client.query(`
       INSERT INTO notificaciones (id_usuario, tipo, mensaje)
       VALUES ($1, 'pedido', $2)
     `, [userId, `Tu pedido #${pedido.id_pedido} ha sido recibido. Tiempo estimado de elaboración: ${tiempoEstimadoTotal} minutos.`]);
+
+    await client.query(`
+      INSERT INTO historial_pedidos (id_pedido, estado, titulo, descripcion, actor_rol)
+      VALUES ($1, 'pendiente', 'Pedido Recibido', 'El pedido fue ingresado exitosamente en el sistema.', 'cliente')
+    `, [pedido.id_pedido]);
 
     await client.query('COMMIT');
 
@@ -326,11 +331,19 @@ router.get('/:id', authMiddleware, async (req, res, next) => {
       WHERE dp.id_pedido = $1
     `, [req.params.id]);
 
+    // Historial de eventos (Audit Trail)
+    const historialResult = await pool.query(`
+      SELECT * FROM historial_pedidos
+      WHERE id_pedido = $1
+      ORDER BY fecha_evento ASC
+    `, [req.params.id]);
+
     res.json({
       success: true,
       data: {
         ...pedidoResult.rows[0],
-        items: detalleResult.rows
+        items: detalleResult.rows,
+        historial_eventos: historialResult.rows
       }
     });
   } catch (error) {

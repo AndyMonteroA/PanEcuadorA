@@ -318,6 +318,65 @@
   font-size: var(--fs-sm);
 }
 
+/* Event Audit Trail Log */
+.order-events-log {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--bg-secondary, #2A2015);
+  padding: 16px;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+.event-log-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.event-log-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(196, 127, 59, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.event-log-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.event-log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.event-log-header strong {
+  font-size: var(--fs-sm, 0.9rem);
+  color: var(--text-primary);
+}
+
+.event-log-time {
+  font-size: var(--fs-xs, 0.75rem);
+  color: var(--text-muted);
+}
+
+.event-log-desc {
+  font-size: var(--fs-xs, 0.8rem);
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
 @media (max-width: 768px) {
   .orders-filters { flex-wrap: nowrap; }
   .order-timeline { overflow-x: auto; gap: var(--space-md); }

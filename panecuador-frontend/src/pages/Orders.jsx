@@ -257,6 +257,37 @@ export default function Orders() {
                     )}
                   </div>
 
+                  {/* Historial de Eventos Registrados */}
+                  <div className="modal-section">
+                    <h3>📜 Historial de Eventos del Pedido</h3>
+                    <div className="order-events-log">
+                      {selectedOrder.historial_eventos && selectedOrder.historial_eventos.length > 0 ? (
+                        selectedOrder.historial_eventos.map((ev, idx) => (
+                          <div key={idx} className="event-log-item">
+                            <div className="event-log-badge">
+                              {estadoConfig[ev.estado]?.icon || '📌'}
+                            </div>
+                            <div className="event-log-content">
+                              <div className="event-log-header">
+                                <strong>{ev.titulo}</strong>
+                                <span className="event-log-time">
+                                  {new Date(ev.fecha_evento).toLocaleDateString('es-EC', {
+                                    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                                  })}
+                                </span>
+                              </div>
+                              {ev.descripcion && <p className="event-log-desc">{ev.descripcion}</p>}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>
+                          Pedido registrado en el sistema.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Actions */}
                   {selectedOrder.estado === 'pendiente' && (
                     <button className="btn btn-secondary" style={{ width: '100%', color: 'var(--color-error)' }}
