@@ -434,4 +434,35 @@ router.get('/category/:id', async (req, res, next) => {
   }
 });
 
+/**
+ * POST /api/products/:id/subscribe-restock
+ * Suscribirse a la notificación de "Próxima Hornada" (reposición de stock)
+ */
+router.post('/:id/subscribe-restock', authMiddleware, async (req, res, next) => {
+  try {
+    const productId = req.params.id;
+    const userId = req.user.id;
+
+    const prod = await pool.query('SELECT nombre FROM productos WHERE id_producto = $1', [productId]);
+    if (prod.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Producto no encontrado.' });
+    }
+
+    await pool.query(
+      `INSERT INTO suscripciones_stock (id_usuario, id_producto)
+       VALUES ($1, $2)
+       ON CONFLICT (id_usuario, id_producto) DO NOTHING`,
+      [userId, productId]
+    );
+
+    res.json({
+      success: true,
+      message: `Te notificaremos penas "${prod.rows[0].nombre}" salga recién horneado.`
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
+

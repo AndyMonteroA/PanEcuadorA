@@ -62,6 +62,7 @@ export const productsAPI = {
   getSuggestions: (q) => api.get('/products/search-suggestions', { params: { q } }),
   getRecommendations: () => api.get('/products/recommendations'),
   getSimilar: (id) => api.get(`/products/${id}/similar`),
+  subscribeRestock: (id) => api.post(`/products/${id}/subscribe-restock`),
 };
 
 // ============================================================

@@ -4,13 +4,13 @@ import { FiShoppingCart, FiHeart, FiStar, FiBox, FiClock, FiAward, FiAlertTriang
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { reviewsAPI } from '../../services/api';
+import { productsAPI, reviewsAPI } from '../../services/api';
 import './ProductCard.css';
 
 export default function ProductCard({ product, isFavorite: initialFav = false }) {
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
-  const { notifyFavorite } = useToast();
+  const { notifyFavorite, addToast } = useToast();
   const [isFav, setIsFav] = useState(initialFav);
   const [favLoading, setFavLoading] = useState(false);
   const [cartMsg, setCartMsg] = useState('');
@@ -43,6 +43,23 @@ export default function ProductCard({ product, isFavorite: initialFav = false })
       console.error(err);
     } finally {
       setFavLoading(false);
+    }
+  };
+
+  const handleSubscribeRestock = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isAuthenticated) { window.location.href = '/login'; return; }
+    try {
+      await productsAPI.subscribeRestock(product.id_producto);
+      addToast({
+        title: '🔔 Alerta de Hornada Activada',
+        name: `Te avisaremos cuando "${product.nombre}" salga calientito del horno.`,
+        image: product.imagen_principal,
+        type: 'fav_add'
+      });
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -137,7 +154,9 @@ export default function ProductCard({ product, isFavorite: initialFav = false })
               Agregar
             </button>
           ) : (
-            <span className="badge badge-error">Agotado</span>
+            <button className="btn btn-secondary btn-sm" onClick={handleSubscribeRestock} style={{ fontSize: '0.75rem', padding: '4px 8px' }}>
+              🔔 Avísame al Hornear
+            </button>
           )}
         </div>
       </div>

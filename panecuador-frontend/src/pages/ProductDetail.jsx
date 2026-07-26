@@ -12,7 +12,7 @@ export default function ProductDetail() {
   const { id } = useParams();
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
-  const { notifyFavorite } = useToast();
+  const { notifyFavorite, addToast } = useToast();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
@@ -79,6 +79,21 @@ export default function ProductDetail() {
       console.error(err);
     } finally {
       setFavLoading(false);
+    }
+  };
+
+  const handleSubscribeRestock = async () => {
+    if (!isAuthenticated) { window.location.href = '/login'; return; }
+    try {
+      await productsAPI.subscribeRestock(product.id_producto);
+      addToast({
+        title: '🔔 Alerta de Hornada Activada',
+        name: `Te notificaremos cuando "${product.nombre}" tenga stock recién horneado.`,
+        image: product.imagen_principal,
+        type: 'fav_add'
+      });
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -282,16 +297,22 @@ export default function ProductDetail() {
                 </button>
               </div>
 
-              <button
-                className="btn btn-primary btn-lg pd-add-btn"
-                onClick={handleAddToCart}
-                disabled={!product.disponible || product.stock <= 0}
-              >
-                <FiShoppingCart />
-                {product.disponible && product.stock > 0
-                  ? `Agregar al carrito — $${(parseFloat(product.precio) * quantity).toFixed(2)}`
-                  : 'Producto agotado'}
-              </button>
+              {product.disponible && product.stock > 0 ? (
+                <button
+                  className="btn btn-primary btn-lg pd-add-btn"
+                  onClick={handleAddToCart}
+                >
+                  <FiShoppingCart />
+                  {`Agregar al carrito — $${(parseFloat(product.precio) * quantity).toFixed(2)}`}
+                </button>
+              ) : (
+                <button
+                  className="btn btn-secondary btn-lg pd-add-btn"
+                  onClick={handleSubscribeRestock}
+                >
+                  🔔 Avísame cuando haya Nueva Hornada
+                </button>
+              )}
             </div>
 
             {addedMsg && (

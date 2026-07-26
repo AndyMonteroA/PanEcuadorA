@@ -7,6 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const { renovarStock } = require('../services/stockRotation');
 const { generarTurnosSemana, obtenerTurnoActual } = require('../services/shiftScheduler');
+const { sendOrderStatusEmail, sendStockAlertEmail } = require('../services/emailService');
 
 // ============================================================
 // CONFIGURACIÓN DE MULTER (subida de imágenes)
@@ -493,6 +494,32 @@ router.put('/products/:id', upload.single('imagen'), async (req, res, next) => {
       }
     }
 
+    // Si el producto pasa de estar agotado/no disponible a tener stock fresco > 0 y disponible
+    if ((prod.stock <= 0 || !prod.disponible) && final_stock > 0 && final_disponible) {
+      try {
+        const subs = await pool.query(
+          `SELECT s.id_usuario, u.email, u.nombre
+           FROM suscripciones_stock s
+           JOIN usuarios u ON s.id_usuario = u.id_usuario
+           WHERE s.id_producto = $1`,
+          [id]
+        );
+
+        for (const sub of subs.rows) {
+          await pool.query(
+            `INSERT INTO notificaciones (id_usuario, tipo, mensaje)
+             VALUES ($1, 'stock', $2)`,
+            [sub.id_usuario, `🥖 ¡Nueva Hornada! El producto "${final_nombre}" ya está listo con stock fresco.`]
+          );
+          sendStockAlertEmail(sub.email, sub.nombre, final_nombre, id);
+        }
+
+        await pool.query('DELETE FROM suscripciones_stock WHERE id_producto = $1', [id]);
+      } catch (subErr) {
+        console.error('Error enviando alertas de stock:', subErr);
+      }
+    }
+
     res.json({
       success: true,
       message: 'Producto actualizado exitosamente.',
@@ -732,6 +759,21 @@ router.put('/orders/:id/status', async (req, res, next) => {
         "INSERT INTO notificaciones (id_usuario, tipo, mensaje) VALUES ($1, 'pedido', $2)",
         [pedido.id_usuario, mensajes[estado]]
       );
+      try {
+        const uRes = await pool.query('SELECT email, nombre FROM usuarios WHERE id_usuario = $1', [pedido.id_usuario]);
+        if (uRes.rows.length > 0) {
+          const titles = {
+            confirmado: 'Pedido Confirmado',
+            preparando: 'En Preparación por el Maestro Panadero',
+            en_camino: 'En Camino con Repartidor 🛵',
+            entregado: 'Entregado con Éxito 🎉',
+            cancelado: 'Pedido Cancelado'
+          };
+          sendOrderStatusEmail(uRes.rows[0].email, uRes.rows[0].nombre, pedido.id_pedido, titles[estado] || estado, mensajes[estado]);
+        }
+      } catch (eErr) {
+        console.error('Error enviando email de estado:', eErr);
+      }
     }
 
     res.json({

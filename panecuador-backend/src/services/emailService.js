@@ -189,18 +189,105 @@ async function sendOrderConfirmationEmail(email, nombre, pedido, items) {
  */
 async function verifyEmailConfig() {
   try {
-    if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
-      console.warn('⚠️ Variables de email no configuradas (MAIL_USER, MAIL_PASS)');
-      return false;
-    }
     await transporter.verify();
-    console.log('✅ Servicio de email configurado correctamente');
+    console.log('✅ Servicio de email (Nodemailer/Gmail) verificado correctamente');
     return true;
   } catch (error) {
-    console.warn('⚠️ No se pudo verificar el servicio de email:', error.message);
+    console.warn('⚠️ Servicio de email no configurado o credenciales inválidas (los emails se omitirán):', error.message);
     return false;
   }
 }
 
-module.exports = { sendPasswordResetEmail, sendOrderConfirmationEmail, verifyEmailConfig };
+/**
+ * Enviar email de cambio de estado de pedido (Ej: En horno, En camino, Entregado)
+ */
+async function sendOrderStatusEmail(email, nombre, orderId, estadoNombre, estadoDetalle) {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://panecuador.online';
 
+  const mailOptions = {
+    from: process.env.MAIL_FROM || `PanEcuador <${process.env.MAIL_USER}>`,
+    to: email,
+    subject: `🚚 Pedido #${orderId}: ${estadoNombre} — PanEcuador`,
+    html: `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #FFF9F3; border-radius: 12px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #3E2723, #5D4037); padding: 32px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">🍞 PanEcuador</h1>
+          <p style="color: rgba(255,255,255,0.7); margin: 8px 0 0;">Actualización de Pedido</p>
+        </div>
+        <div style="padding: 32px;">
+          <p style="color: #333; font-size: 16px;">Hola <strong>${nombre}</strong>,</p>
+          <p style="color: #555; line-height: 1.6;">
+            Tu pedido <strong>#${orderId}</strong> ha cambiado de estado a:
+          </p>
+          <div style="background: #FEF3C7; border-left: 4px solid #C47F3B; padding: 16px; margin: 20px 0; border-radius: 6px;">
+            <h3 style="margin: 0 0 6px 0; color: #92400E;">${estadoNombre}</h3>
+            <p style="margin: 0; color: #78350F; font-size: 14px;">${estadoDetalle}</p>
+          </div>
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="${frontendUrl}/pedidos"
+               style="background: linear-gradient(135deg, #C47F3B, #D4A017); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; display: inline-block;">
+              Rastrear mi pedido
+            </a>
+          </div>
+        </div>
+      </div>
+    `
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    return true;
+  } catch (error) {
+    console.error('❌ Error enviando email de estado:', error);
+    return false;
+  }
+}
+
+/**
+ * Enviar email de alerta de nueva hornada / stock disponible
+ */
+async function sendStockAlertEmail(email, nombre, productoNombre, productoId) {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://panecuador.online';
+
+  const mailOptions = {
+    from: process.env.MAIL_FROM || `PanEcuador <${process.env.MAIL_USER}>`,
+    to: email,
+    subject: `🥖 ¡Pan fresco! "${productoNombre}" ya salió del horno — PanEcuador`,
+    html: `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #FFF9F3; border-radius: 12px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #3E2723, #5D4037); padding: 32px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">🍞 PanEcuador</h1>
+          <p style="color: rgba(255,255,255,0.7); margin: 8px 0 0;">¡Nueva Hornada Calientita!</p>
+        </div>
+        <div style="padding: 32px; text-align: center;">
+          <h2 style="color: #C47F3B; margin: 0 0 12px 0;">¡Ya está listo tu pan favorito!</h2>
+          <p style="color: #555; line-height: 1.6;">
+            El producto <strong>${productoNombre}</strong> que estabas esperando ya tiene stock recién horneado y disponible para compra inmediata.
+          </p>
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="${frontendUrl}/producto/${productoId}"
+               style="background: linear-gradient(135deg, #C47F3B, #D4A017); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; display: inline-block;">
+              Comprar Ahora Recién Horneado
+            </a>
+          </div>
+        </div>
+      </div>
+    `
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    return true;
+  } catch (error) {
+    console.error('❌ Error enviando alerta de stock:', error);
+    return false;
+  }
+}
+
+module.exports = {
+  sendPasswordResetEmail,
+  sendOrderConfirmationEmail,
+  sendOrderStatusEmail,
+  sendStockAlertEmail,
+  verifyEmailConfig
+};
