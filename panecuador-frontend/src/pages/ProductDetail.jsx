@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { FiShoppingCart, FiHeart, FiStar, FiMinus, FiPlus, FiChevronLeft, FiPackage, FiX, FiZoomIn, FiChevronRight, FiCheck } from 'react-icons/fi';
+import { FiShoppingCart, FiHeart, FiStar, FiMinus, FiPlus, FiChevronLeft, FiPackage, FiX, FiZoomIn, FiChevronRight, FiCheck, FiFrown, FiAlertTriangle, FiClock, FiMessageSquare } from 'react-icons/fi';
 import { productsAPI, reviewsAPI } from '../services/api';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -129,7 +129,7 @@ export default function ProductDetail() {
       <div className="product-detail-page">
         <div className="container">
           <div className="empty-state">
-            <span className="empty-emoji">😢</span>
+            <FiFrown size={48} color="var(--text-muted)" style={{ marginBottom: 12 }} />
             <h3>Producto no encontrado</h3>
             <Link to="/catalogo" className="btn btn-primary">Volver al catálogo</Link>
           </div>
@@ -176,8 +176,8 @@ export default function ProductDetail() {
                   </div>
                 </>
               ) : (
-                <div className="product-placeholder" style={{ height: '100%', fontSize: '8rem' }}>
-                  {product.id_categoria <= 1 ? '🥖' : '🎂'}
+                <div className="product-placeholder" style={{ height: '100%' }}>
+                  <FiBox size={64} color="var(--color-primary)" />
                 </div>
               )}
             </div>
@@ -298,12 +298,12 @@ export default function ProductDetail() {
 
             {/* Stock info — Amazon style */}
             <div className="pd-stock-info">
-              {product.stock > 5 ? (
-                <span className="badge badge-success"><FiCheck size={14} /> Disponible</span>
-              ) : product.stock > 0 ? (
-                <span className="badge badge-warning">🔥 ¡Pocas unidades disponibles!</span>
+              {product.disponible && product.stock > 5 ? (
+                <span className="badge badge-success"><FiCheck size={14} /> Disponible en tienda</span>
+              ) : product.disponible && product.stock > 0 ? (
+                <span className="badge badge-warning"><FiAlertTriangle size={14} /> ¡Pocas unidades disponibles!</span>
               ) : (
-                <span className="badge badge-error">Agotado</span>
+                <span className="badge badge-error"><FiClock size={14} /> Stock en reposición (Próxima hornada)</span>
               )}
             </div>
           </div>
@@ -311,7 +311,7 @@ export default function ProductDetail() {
 
         {/* ============ REVIEWS SECTION ============ */}
         <div className="pd-reviews-section">
-          <h2 className="section-title">⭐ Reseñas de clientes</h2>
+          <h2 className="section-title"><FiStar style={{ verticalAlign: 'middle', marginRight: 6 }} /> Reseñas de clientes</h2>
 
           {/* Review Summary */}
           <div className="pd-reviews-summary">
@@ -370,7 +370,7 @@ export default function ProductDetail() {
             </div>
           ) : (
             <div className="pd-reviews-empty">
-              <span className="empty-emoji">💬</span>
+              <FiMessageSquare size={36} color="var(--text-muted)" style={{ marginBottom: 8 }} />
               <p>Aún no hay reseñas para este producto.</p>
               <p className="text-muted">¡Sé el primero en compartir tu opinión!</p>
             </div>
@@ -380,7 +380,7 @@ export default function ProductDetail() {
         {/* ============ SIMILAR PRODUCTS ============ */}
         {similarProducts.length > 0 && (
           <div className="pd-similar-section">
-            <h2 className="section-title">🍞 Productos similares que podrían gustarte</h2>
+            <h2 className="section-title"><FiPackage style={{ verticalAlign: 'middle', marginRight: 6 }} /> Productos similares que podrían gustarte</h2>
             <div className="pd-similar-grid">
               {similarProducts.map(p => (
                 <ProductCard key={p.id_producto} product={p} />

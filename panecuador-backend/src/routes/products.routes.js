@@ -74,8 +74,6 @@ router.get('/', optionalAuth, async (req, res, next) => {
     if (disponible !== undefined) {
       conditions.push(`p.disponible = $${paramIndex++}`);
       params.push(disponible === 'true');
-    } else {
-      conditions.push('p.disponible = TRUE');
     }
 
     if (conditions.length > 0) {
@@ -108,7 +106,7 @@ router.get('/', optionalAuth, async (req, res, next) => {
         query += ' ORDER BY calificacion_promedio DESC';
         break;
       default:
-        query += ' ORDER BY p.fecha_creacion DESC';
+        query += ' ORDER BY p.disponible DESC, p.fecha_creacion DESC';
     }
 
     // Paginación
@@ -119,9 +117,9 @@ router.get('/', optionalAuth, async (req, res, next) => {
     const result = await pool.query(query, params);
 
     // Total para paginación
-    let countQuery = 'SELECT COUNT(DISTINCT p.id_producto) FROM productos p WHERE p.disponible = TRUE';
+    let countQuery = 'SELECT COUNT(DISTINCT p.id_producto) FROM productos p';
     if (categoria) {
-      countQuery = `SELECT COUNT(DISTINCT p.id_producto) FROM productos p WHERE p.disponible = TRUE AND p.id_categoria = ${categoria}`;
+      countQuery = `SELECT COUNT(DISTINCT p.id_producto) FROM productos p WHERE p.id_categoria = ${categoria}`;
     }
     const countResult = await pool.query(countQuery);
     const total = parseInt(countResult.rows[0].count);
@@ -168,9 +166,8 @@ router.get('/featured', async (req, res, next) => {
       LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
       LEFT JOIN productores pr ON p.id_productor = pr.id_productor
       LEFT JOIN reseñas r ON p.id_producto = r.id_producto
-      WHERE p.disponible = TRUE AND p.stock > 0
       GROUP BY p.id_producto, c.nombre, pr.nombre_negocio
-      ORDER BY calificacion_promedio DESC, p.fecha_creacion DESC
+      ORDER BY p.disponible DESC, calificacion_promedio DESC, p.fecha_creacion DESC
       LIMIT 8
     `);
 
@@ -200,7 +197,8 @@ router.get('/search-suggestions', async (req, res, next) => {
               WHERE gp.id_producto = p.id_producto AND gp.tipo = 'foto'
               ORDER BY gp.orden LIMIT 1) AS imagen_principal
       FROM productos p
-      WHERE p.nombre ILIKE $1 AND p.disponible = TRUE
+      WHERE p.nombre ILIKE $1
+      ORDER BY p.disponible DESC
       LIMIT 5
     `, [searchTerm]);
 
@@ -425,9 +423,9 @@ router.get('/category/:id', async (req, res, next) => {
       FROM productos p
       LEFT JOIN productores pr ON p.id_productor = pr.id_productor
       LEFT JOIN reseñas r ON p.id_producto = r.id_producto
-      WHERE p.id_categoria = $1 AND p.disponible = TRUE
+      WHERE p.id_categoria = $1
       GROUP BY p.id_producto, pr.nombre_negocio
-      ORDER BY p.nombre
+      ORDER BY p.disponible DESC, p.nombre ASC
     `, [req.params.id]);
 
     res.json({ success: true, data: result.rows });

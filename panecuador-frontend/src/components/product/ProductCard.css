@@ -19,6 +19,11 @@
   transform: translateY(-6px);
 }
 
+.product-card-out .product-image img {
+  filter: grayscale(0.25);
+  opacity: 0.85;
+}
+
 /* Image */
 .product-image-wrapper {
   position: relative;

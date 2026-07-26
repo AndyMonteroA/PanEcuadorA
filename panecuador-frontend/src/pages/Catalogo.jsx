@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { FiFilter, FiGrid, FiList, FiChevronDown } from 'react-icons/fi';
+import { FiFilter, FiGrid, FiList, FiChevronDown, FiSearch } from 'react-icons/fi';
 import ProductCard from '../components/product/ProductCard';
 import { productsAPI, categoriesAPI } from '../services/api';
 import './Catalogo.css';
@@ -173,7 +173,7 @@ export default function Catalogo() {
               </div>
             ) : products.length === 0 ? (
               <div className="empty-state">
-                <span className="empty-emoji">🔍</span>
+                <FiSearch size={48} color="var(--text-muted)" style={{ marginBottom: 12 }} />
                 <h3>No se encontraron productos</h3>
                 <p>Intenta con otros filtros o términos de búsqueda</p>
               </div>

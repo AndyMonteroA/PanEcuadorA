@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiShoppingCart, FiHeart, FiStar } from 'react-icons/fi';
+import { FiShoppingCart, FiHeart, FiStar, FiBox, FiClock, FiAward, FiAlertTriangle } from 'react-icons/fi';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { reviewsAPI } from '../../services/api';
@@ -48,25 +48,30 @@ export default function ProductCard({ product, isFavorite: initialFav = false })
     ? (Date.now() - new Date(product.fecha_elaboracion_stock)) < 7 * 24 * 60 * 60 * 1000
     : false;
   const isLowStock = product.stock > 0 && product.stock < 5;
+  const isOut = !product.disponible || product.stock <= 0;
 
   return (
-    <Link to={`/producto/${product.id_producto}`} className="product-card">
+    <Link to={`/producto/${product.id_producto}`} className={`product-card ${isOut ? 'product-card-out' : ''}`}>
       <div className="product-image-wrapper">
         <div className="product-image">
           {product.imagen_principal ? (
             <img src={product.imagen_principal} alt={product.nombre} />
           ) : (
             <div className="product-placeholder">
-              {product.id_categoria <= 1 ? '🥖' : product.id_categoria === 2 ? '🎂' : product.id_categoria === 3 ? '🍪' : product.id_categoria === 4 ? '🍮' : product.id_categoria === 5 ? '🌾' : '🎉'}
+              <FiBox size={32} color="var(--color-primary)" />
             </div>
           )}
         </div>
 
         <div className="product-badges">
-          {isNew && <span className="badge badge-new">✨ Nuevo</span>}
-          {!product.disponible && <span className="badge badge-error">Agotado</span>}
-          {isLowStock && product.disponible && (
-            <span className="badge badge-stock-low">🔥 ¡Pocas unidades!</span>
+          {isNew && !isOut && (
+            <span className="badge badge-new"><FiAward size={12} /> Nuevo</span>
+          )}
+          {isOut && (
+            <span className="badge badge-error"><FiClock size={12} /> Próxima Hornada</span>
+          )}
+          {isLowStock && !isOut && (
+            <span className="badge badge-stock-low"><FiAlertTriangle size={12} /> ¡Pocas unidades!</span>
           )}
         </div>
 

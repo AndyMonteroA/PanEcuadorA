@@ -66,7 +66,7 @@ export default function Home() {
                 Explorar Catálogo <FiArrowRight />
               </Link>
               <Link to="/panpass" className="btn btn-panpass btn-lg">
-                ⭐ Conocer PanPass
+                <FiStar size={16} /> Conocer PanPass
               </Link>
             </div>
           </div>
@@ -78,9 +78,9 @@ export default function Home() {
                     {p.imagen_principal ? (
                       <img src={p.imagen_principal} alt={p.nombre} />
                     ) : (
-                      <span className="hero-card-emoji">
-                        {p.id_categoria <= 1 ? '🥖' : p.id_categoria === 2 ? '🎂' : '🍪'}
-                      </span>
+                      <div className="hero-card-emoji" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <FiBox size={24} color="var(--color-primary)" />
+                      </div>
                     )}
                   </div>
                   <span>{p.nombre}</span>
@@ -89,9 +89,9 @@ export default function Home() {
               ))}
               {featuredProducts.length === 0 && (
                 <>
-                  <div className="hero-float-card card-1"><div className="hero-card-emoji">🥐</div><span>Pan de Yema</span><small>$0.35</small></div>
-                  <div className="hero-float-card card-2"><div className="hero-card-emoji">🎂</div><span>Tres Leches</span><small>$12.50</small></div>
-                  <div className="hero-float-card card-3"><div className="hero-card-emoji">🥖</div><span>Pan de Agua</span><small>$0.25</small></div>
+                  <div className="hero-float-card card-1"><div className="hero-card-emoji" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FiBox size={24} color="var(--color-primary)" /></div><span>Pan de Yema</span><small>$0.35</small></div>
+                  <div className="hero-float-card card-2"><div className="hero-card-emoji" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FiBox size={24} color="var(--color-primary)" /></div><span>Tres Leches</span><small>$12.50</small></div>
+                  <div className="hero-float-card card-3"><div className="hero-card-emoji" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FiBox size={24} color="var(--color-primary)" /></div><span>Pan de Agua</span><small>$0.25</small></div>
                 </>
               )}
             </div>
@@ -144,7 +144,9 @@ export default function Home() {
                 className="category-card"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
-                <span className="category-emoji">{categoryEmojis[index] || '🍞'}</span>
+                <div className="category-emoji" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FiPackage size={28} color="var(--color-primary)" />
+                </div>
                 <h3>{cat.nombre}</h3>
                 <p>{cat.descripcion}</p>
               </Link>
@@ -158,7 +160,7 @@ export default function Home() {
         <section className="recommended-section section" style={{ background: 'var(--bg-secondary)', padding: '40px 0' }}>
           <div className="container">
             <div className="section-header" style={{ marginBottom: '24px' }}>
-              <h2 className="section-title">Inspirado en tus búsquedas recientes 🥐</h2>
+              <h2 className="section-title"><FiAward style={{ verticalAlign: 'middle', marginRight: 6 }} /> Inspirado en tus búsquedas recientes</h2>
             </div>
             <div className="products-grid">
               {recommendedProducts.map((product) => (

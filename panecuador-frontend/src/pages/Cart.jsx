@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiTrash2, FiMinus, FiPlus, FiShoppingCart, FiArrowRight, FiAlertTriangle } from 'react-icons/fi';
+import { FiTrash2, FiMinus, FiPlus, FiShoppingCart, FiArrowRight, FiAlertTriangle, FiLock, FiBox } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import './Cart.css';
@@ -19,7 +19,7 @@ export default function Cart() {
       <div className="cart-page">
         <div className="container">
           <div className="empty-state">
-            <span className="empty-emoji">🔐</span>
+            <FiLock size={48} color="var(--text-muted)" style={{ marginBottom: 12 }} />
             <h3>Inicia sesión para ver tu carrito</h3>
             <Link to="/login" className="btn btn-primary">Ingresar</Link>
           </div>
@@ -43,7 +43,7 @@ export default function Cart() {
       <div className="cart-page">
         <div className="container">
           <div className="empty-state">
-            <span className="empty-emoji">🛒</span>
+            <FiShoppingCart size={48} color="var(--text-muted)" style={{ marginBottom: 12 }} />
             <h3>Tu carrito está vacío</h3>
             <p>Explora nuestro catálogo y agrega productos deliciosos</p>
             <Link to="/catalogo" className="btn btn-primary btn-lg">Explorar Catálogo</Link>
@@ -174,7 +174,9 @@ function CartItem({ item, updateQuantity, removeItem }) {
         {item.imagen ? (
           <img src={item.imagen} alt={item.nombre} />
         ) : (
-          <div className="product-placeholder" style={{ height: '100%' }}>🍞</div>
+          <div className="product-placeholder" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <FiBox size={24} color="var(--color-primary)" />
+          </div>
         )}
       </div>
 
