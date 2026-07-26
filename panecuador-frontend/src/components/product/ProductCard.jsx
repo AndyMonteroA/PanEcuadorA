@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom';
 import { FiShoppingCart, FiHeart, FiStar, FiBox, FiClock, FiAward, FiAlertTriangle } from 'react-icons/fi';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { reviewsAPI } from '../../services/api';
 import './ProductCard.css';
 
 export default function ProductCard({ product, isFavorite: initialFav = false }) {
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
+  const { notifyFavorite } = useToast();
   const [isFav, setIsFav] = useState(initialFav);
   const [favLoading, setFavLoading] = useState(false);
   const [cartMsg, setCartMsg] = useState('');
@@ -34,7 +36,9 @@ export default function ProductCard({ product, isFavorite: initialFav = false })
     setFavLoading(true);
     try {
       const res = await reviewsAPI.toggleFavorite(product.id_producto);
-      setIsFav(res.data.esFavorito);
+      const newFavState = res.data.esFavorito;
+      setIsFav(newFavState);
+      notifyFavorite(product.nombre, product.imagen_principal, newFavState);
     } catch (err) {
       console.error(err);
     } finally {

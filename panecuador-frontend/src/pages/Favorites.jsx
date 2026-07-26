@@ -4,11 +4,13 @@ import { FiHeart, FiShoppingCart, FiTrash2 } from 'react-icons/fi';
 import { reviewsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useToast } from '../context/ToastContext';
 import './Favorites.css';
 
 export default function Favorites() {
   const { isAuthenticated } = useAuth();
   const { addToCart } = useCart();
+  const { notifyFavorite } = useToast();
   const navigate = useNavigate();
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,18 +31,19 @@ export default function Favorites() {
     }
   }
 
-  const handleRemove = async (productId) => {
+  const handleRemove = async (product) => {
     try {
-      await reviewsAPI.toggleFavorite(productId);
-      setFavorites(favorites.filter(f => f.id_producto !== productId));
+      await reviewsAPI.toggleFavorite(product.id_producto);
+      setFavorites(favorites.filter(f => f.id_producto !== product.id_producto));
+      notifyFavorite(product.nombre, product.imagen_principal, false);
     } catch (err) {
       console.error(err);
     }
   };
 
-  const handleAddToCart = async (productId) => {
+  const handleAddToCart = async (product) => {
     try {
-      await addToCart(productId);
+      await addToCart(product.id_producto, 1, product.nombre, product.imagen_principal);
     } catch (err) {
       console.error(err);
     }
@@ -90,10 +93,10 @@ export default function Favorites() {
                   <span className="fav-price">${parseFloat(fav.precio).toFixed(2)}</span>
 
                   <div className="fav-actions">
-                    <button className="btn btn-primary btn-sm" onClick={() => handleAddToCart(fav.id_producto)}>
+                    <button className="btn btn-primary btn-sm" onClick={() => handleAddToCart(fav)}>
                       <FiShoppingCart size={14} /> Agregar
                     </button>
-                    <button className="btn-icon-sm fav-remove" onClick={() => handleRemove(fav.id_producto)}>
+                    <button className="btn-icon-sm fav-remove" onClick={() => handleRemove(fav)}>
                       <FiTrash2 size={16} />
                     </button>
                   </div>

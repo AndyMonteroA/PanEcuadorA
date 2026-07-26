@@ -1,7 +1,7 @@
-import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useCallback } from 'react';
 import { cartAPI } from '../services/api';
 import { useAuth } from './AuthContext';
-import CartToast from '../components/cart/CartToast';
+import { useToast } from './ToastContext';
 
 const CartContext = createContext(null);
 
@@ -9,17 +9,8 @@ export function CartProvider({ children }) {
   const [items, setItems] = useState([]);
   const [resumen, setResumen] = useState({ subtotal: '0.00', totalItems: 0, tiempoElaboracionEstimado: 0 });
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState(null);
-  const toastTimeoutRef = useRef(null);
   const { isAuthenticated } = useAuth();
-
-  const showToast = (productName, productImage = '') => {
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    setToast({ productName, productImage });
-    toastTimeoutRef.current = setTimeout(() => {
-      setToast(null);
-    }, 3500);
-  };
+  const { notifyCart } = useToast();
 
   const fetchCart = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -39,7 +30,7 @@ export function CartProvider({ children }) {
     try {
       await cartAPI.add(id_producto, cantidad);
       await fetchCart();
-      showToast(productName || 'Producto agregado a tu pedido', productImage);
+      notifyCart(productName || 'Producto agregado a tu pedido', productImage);
       return true;
     } catch (err) {
       throw err.response?.data?.message || 'Error al agregar al carrito';
@@ -89,7 +80,6 @@ export function CartProvider({ children }) {
   return (
     <CartContext.Provider value={value}>
       {children}
-      <CartToast toast={toast} onClose={() => setToast(null)} />
     </CartContext.Provider>
   );
 }

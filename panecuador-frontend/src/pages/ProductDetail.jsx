@@ -4,6 +4,7 @@ import { FiShoppingCart, FiHeart, FiStar, FiMinus, FiPlus, FiChevronLeft, FiPack
 import { productsAPI, reviewsAPI } from '../services/api';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import ProductCard from '../components/product/ProductCard';
 import './ProductDetail.css';
 
@@ -11,6 +12,7 @@ export default function ProductDetail() {
   const { id } = useParams();
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
+  const { notifyFavorite } = useToast();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
@@ -70,7 +72,9 @@ export default function ProductDetail() {
     setFavLoading(true);
     try {
       const res = await reviewsAPI.toggleFavorite(product.id_producto);
-      setIsFav(res.data.esFavorito);
+      const newFavState = res.data.esFavorito;
+      setIsFav(newFavState);
+      notifyFavorite(product.nombre, product.imagen_principal, newFavState);
     } catch (err) {
       console.error(err);
     } finally {

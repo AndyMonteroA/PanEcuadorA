@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { ToastProvider } from './context/ToastContext';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 
@@ -79,8 +80,9 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <NotificationProvider>
-          <CartProvider>
+        <ToastProvider>
+          <NotificationProvider>
+            <CartProvider>
             <Routes>
             {/* Rutas del Admin — sin Navbar/Footer */}
             <Route
@@ -168,6 +170,7 @@ function App() {
           </Routes>
         </CartProvider>
         </NotificationProvider>
+        </ToastProvider>
       </AuthProvider>
     </Router>
   );
