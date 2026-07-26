@@ -146,18 +146,12 @@ export default function ProductCard({ product, isFavorite: initialFav = false })
 
 
 
-        {/* Price */}
+        {/* Price & Add to Cart */}
         <div className="product-price-row">
           <span className="product-price">${parseFloat(product.precio).toFixed(2)}</span>
-          {product.disponible && product.stock > 0 ? (
-            <button className="btn btn-primary btn-sm add-to-cart-btn" onClick={handleAddToCart}>
-              Agregar
-            </button>
-          ) : (
-            <button className="btn btn-secondary btn-sm" onClick={handleSubscribeRestock} style={{ fontSize: '0.75rem', padding: '4px 8px' }}>
-              🔔 Avísame al Hornear
-            </button>
-          )}
+          <button className="btn btn-primary btn-sm add-to-cart-btn" onClick={handleAddToCart}>
+            {product.stock <= 0 ? '🥖 Reservar' : 'Agregar'}
+          </button>
         </div>
       </div>
     </Link>

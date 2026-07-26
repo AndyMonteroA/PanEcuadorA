@@ -297,22 +297,15 @@ export default function ProductDetail() {
                 </button>
               </div>
 
-              {product.disponible && product.stock > 0 ? (
-                <button
-                  className="btn btn-primary btn-lg pd-add-btn"
-                  onClick={handleAddToCart}
-                >
-                  <FiShoppingCart />
-                  {`Agregar al carrito — $${(parseFloat(product.precio) * quantity).toFixed(2)}`}
-                </button>
-              ) : (
-                <button
-                  className="btn btn-secondary btn-lg pd-add-btn"
-                  onClick={handleSubscribeRestock}
-                >
-                  🔔 Avísame cuando haya Nueva Hornada
-                </button>
-              )}
+              <button
+                className="btn btn-primary btn-lg pd-add-btn"
+                onClick={handleAddToCart}
+              >
+                <FiShoppingCart />
+                {product.stock <= 0
+                  ? `Reservar — $${(parseFloat(product.precio) * quantity).toFixed(2)} (Horneado Bajo Pedido)`
+                  : `Agregar al carrito — $${(parseFloat(product.precio) * quantity).toFixed(2)}`}
+              </button>
             </div>
 
             {addedMsg && (

@@ -54,21 +54,14 @@ router.post('/', authMiddleware, async (req, res, next) => {
       });
     }
 
-    // 3. Verificar stock y disponibilidad de cada producto
+    // 3. Procesar ítems y descontar stock disponible si existe (Horneado Bajo Pedido si no hay stock)
     for (const item of items) {
-      if (!item.disponible) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({
-          success: false,
-          message: `El producto "${item.nombre}" ya no está disponible.`
-        });
-      }
-      if (item.stock < item.cantidad) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({
-          success: false,
-          message: `Stock insuficiente para "${item.nombre}". Disponible: ${item.stock}, solicitado: ${item.cantidad}`
-        });
+      if (item.stock > 0) {
+        const stockADescontar = Math.min(item.stock, item.cantidad);
+        await client.query(
+          'UPDATE productos SET stock = stock - $1 WHERE id_producto = $2',
+          [stockADescontar, item.id_producto]
+        );
       }
     }
 
