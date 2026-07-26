@@ -98,7 +98,8 @@ export default function Navbar() {
                   <span className="suggestions-section-title">Categorías</span>
                   {suggestions.categories.map(cat => (
                     <Link key={cat.id_categoria} to={`/catalogo?categoria=${cat.id_categoria}`} className="suggestion-item category-suggestion">
-                      📁 {cat.nombre}
+                      <FiGrid size={15} style={{ marginRight: '8px', color: 'var(--color-primary)', flexShrink: 0 }} />
+                      <span>{cat.nombre}</span>
                     </Link>
                   ))}
                 </div>
@@ -111,7 +112,9 @@ export default function Navbar() {
                       {prod.imagen_principal ? (
                         <img src={prod.imagen_principal} alt="" className="suggestion-prod-img" />
                       ) : (
-                        <span className="suggestion-prod-emoji">🍞</span>
+                        <div style={{ width: '32px', height: '32px', borderRadius: '6px', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <FiPackage size={16} color="var(--color-primary)" />
+                        </div>
                       )}
                       <div className="suggestion-prod-info">
                         <span className="suggestion-prod-name">{prod.nombre}</span>
