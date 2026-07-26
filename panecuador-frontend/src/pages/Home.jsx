@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FiTruck, FiClock, FiShield, FiStar, FiArrowRight, FiBox } from 'react-icons/fi';
+import { FiTruck, FiClock, FiShield, FiStar, FiArrowRight, FiBox, FiPackage, FiAward } from 'react-icons/fi';
 import ProductCard from '../components/product/ProductCard';
 import { productsAPI, categoriesAPI } from '../services/api';
 import './Home.css';
