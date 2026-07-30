@@ -67,48 +67,57 @@ CREATE INDEX IF NOT EXISTS idx_estados_envio_pedido ON estados_envio(id_pedido);
 -- 6. Agregar campo de evidencia a tabla devoluciones
 ALTER TABLE devoluciones ADD COLUMN IF NOT EXISTS evidencia_url TEXT;
 
--- 7. Reseñas de ejemplo para todos los productos (con usuario_id=1 y pedido simulado)
--- Se ejecutan con DO block para generar reseñas solo si no existen
+-- 7. Reseñas de ejemplo para productos (con verificación segura de pedido)
 DO $$
 DECLARE
     prod RECORD;
     usuario_existente INT;
     pedido_existente INT;
 BEGIN
-    -- Obtener un usuario existente
     SELECT id_usuario INTO usuario_existente FROM usuarios LIMIT 1;
     
     IF usuario_existente IS NOT NULL THEN
         FOR prod IN SELECT id_producto, nombre FROM productos LOOP
-            -- Verificar si ya tiene reseñas
             IF NOT EXISTS (SELECT 1 FROM reseñas WHERE id_producto = prod.id_producto LIMIT 1) THEN
-                -- Buscar un pedido entregado que contenga este producto
+                -- Buscar pedido entregado con este producto o cualquier pedido existente
                 SELECT p.id_pedido INTO pedido_existente
                 FROM pedidos p
                 JOIN detalle_pedido dp ON p.id_pedido = dp.id_pedido
-                WHERE dp.id_producto = prod.id_producto AND p.estado = 'entregado'
+                WHERE dp.id_producto = prod.id_producto
                 LIMIT 1;
+
+                IF pedido_existente IS NULL THEN
+                    SELECT id_pedido INTO pedido_existente FROM pedidos LIMIT 1;
+                END IF;
                 
-                -- Si no hay pedido entregado, crear reseñas con id_pedido NULL bypass
-                -- Insertar 3-5 reseñas variadas por producto
-                INSERT INTO reseñas (id_usuario, id_producto, id_pedido, calificacion, comentario)
-                SELECT 
-                    usuario_existente,
-                    prod.id_producto,
-                    COALESCE(pedido_existente, 1),
-                    (ARRAY[4, 5, 5, 4, 3])[gs],
-                    (ARRAY[
-                        '¡Excelente calidad! Muy fresco y con un sabor auténtico.',
-                        'Superó mis expectativas. Lo volveré a pedir sin duda.',
-                        'Buen producto, llegó a tiempo y en perfecto estado.',
-                        'Muy rico, toda la familia lo disfrutó. Recomendado.',
-                        'Buena relación calidad-precio. El sabor es muy agradable.'
-                    ])[gs]
-                FROM generate_series(1, 3 + (prod.id_producto % 3)) AS gs;
+                -- Solo insertar reseñas si existe un pedido válido en la base de datos
+                IF pedido_existente IS NOT NULL THEN
+                    INSERT INTO reseñas (id_usuario, id_producto, id_pedido, calificacion, comentario)
+                    SELECT 
+                        usuario_existente,
+                        prod.id_producto,
+                        pedido_existente,
+                        (ARRAY[4, 5, 5, 4, 3])[gs],
+                        (ARRAY[
+                            '¡Excelente calidad! Muy fresco y con un sabor auténtico.',
+                            'Superó mis expectativas. Lo volveré a pedir sin duda.',
+                            'Buen producto, llegó a tiempo y en perfecto estado.',
+                            'Muy rico, toda la familia lo disfrutó. Recomendado.',
+                            'Buena relación calidad-precio. El sabor es muy agradable.'
+                        ])[gs]
+                    FROM generate_series(1, 3 + (prod.id_producto % 3)) AS gs;
+                END IF;
             END IF;
         END LOOP;
     END IF;
 END $$;
 
--- 8. Inicializar precio_compra como 60% del precio de venta (margen estimado)
+-- 8. Inicializar precio_compra como 60% del precio de venta
 UPDATE productos SET precio_compra = ROUND(precio * 0.60, 2) WHERE precio_compra = 0 OR precio_compra IS NULL;
+
+-- 9. Activar la disponibilidad y frescura de TODOS los productos
+UPDATE productos 
+SET disponible = TRUE, 
+    stock = CASE WHEN stock <= 0 THEN 25 ELSE stock END,
+    fecha_elaboracion_stock = CURRENT_TIMESTAMP,
+    fecha_vencimiento_stock = CURRENT_TIMESTAMP + INTERVAL '3 days';
