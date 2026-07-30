@@ -24,6 +24,8 @@ export default function AdminShifts() {
   const [workers, setWorkers] = useState([]);
   const [shifts, setShifts] = useState([]);
   const [assignments, setAssignments] = useState([]);
+  const [producers, setProducers] = useState([]);
+  const [selectedProducer, setSelectedProducer] = useState('');
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ id_trabajador: '', id_turno: '', fecha: getWeekDates()[0] });
   const [saving, setSaving] = useState(false);
@@ -37,14 +39,16 @@ export default function AdminShifts() {
   async function fetchAll() {
     setLoading(true);
     try {
-      const [w, s, a] = await Promise.all([
+      const [w, s, a, p] = await Promise.all([
         adminAPI.getWorkers(),
         adminAPI.getShifts(),
         adminAPI.getShiftAssignments({ fecha_inicio: weekDates[0], fecha_fin: weekDates[6] }),
+        adminAPI.getProducers().catch(() => ({ data: { data: [] } }))
       ]);
       setWorkers(w.data.data);
       setShifts(s.data.data);
       setAssignments(a.data.data);
+      setProducers(p.data.data || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -103,19 +107,37 @@ export default function AdminShifts() {
     assignMatrix[a.id_trabajador][a.fecha].push(a);
   });
 
+  // Filter workers by selected producer
+  const filteredWorkers = selectedProducer
+    ? workers.filter(w => w.id_productor == selectedProducer)
+    : workers;
+
   return (
     <div className="admin-page">
       {/* Header */}
-      <div className="admin-page-header" style={{ marginBottom: '24px' }}>
+      <div className="admin-page-header" style={{ marginBottom: '20px' }}>
         <div>
-          <h1 className="admin-page-title">🕐 Gestión de Turnos</h1>
-          <p style={{ color: 'var(--text-muted)', marginTop: '4px', fontSize: '0.9rem' }}>
-            Asigna turnos a los trabajadores para los próximos 7 días
+          <h1 className="admin-page-title">🕐 Supervisión de Turnos por Productor</h1>
+          <p style={{ color: '#64748b', marginTop: '4px', fontSize: '0.88rem' }}>
+            Vista general de los trabajadores de turno por panadería/productor. Los productores administran los turnos de su personal.
           </p>
         </div>
-        <button className="btn btn-secondary" onClick={handleGenerateShifts}>
-          <FiRefreshCw size={16} /> Generar turnos automáticos
-        </button>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <select
+            className="input"
+            value={selectedProducer}
+            onChange={e => setSelectedProducer(e.target.value)}
+            style={{ padding: '8px 14px', borderRadius: '10px', background: '#ffffff', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+          >
+            <option value="">🏢 Todos los productores ({producers.length})</option>
+            {producers.map(p => (
+              <option key={p.id_productor} value={p.id_productor}>{p.nombre_negocio}</option>
+            ))}
+          </select>
+          <button className="btn btn-secondary" onClick={handleGenerateShifts} style={{ background: '#ffffff', border: '1px solid #cbd5e1' }}>
+            <FiRefreshCw size={16} /> Generar Turnos Semanales
+          </button>
+        </div>
       </div>
 
       {msg && (
