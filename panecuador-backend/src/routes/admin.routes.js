@@ -1217,6 +1217,8 @@ router.post('/products/:id/renew-stock', async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
 // POST /api/admin/products/renew-all-stock — Renovar stock y frescura de todos los productos
 router.post('/products/renew-all-stock', async (req, res, next) => {
   try {
