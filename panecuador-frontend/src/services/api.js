@@ -209,6 +209,7 @@ export const adminAPI = {
   generateShifts: () => api.post('/admin/generate-shifts'),
   getReturnsCount: () => api.get('/admin/returns-count'),
   getReports: () => api.get('/admin/reports'),
+  getAlerts: () => api.get('/admin/alerts'),
 
   // Pricing & Profits (Fórmula del Profesor)
   getPricing: () => api.get('/admin/pricing'),

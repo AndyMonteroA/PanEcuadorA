@@ -140,6 +140,78 @@ router.get('/stats', async (req, res, next) => {
 });
 
 /**
+ * GET /api/admin/alerts
+ * Alertas operativas en tiempo real basadas en datos reales de la DB
+ */
+router.get('/alerts', async (req, res, next) => {
+  try {
+    const alerts = [];
+
+    // 1. Productos sin stock fresco (stock <= 0)
+    const sinStock = await pool.query(`
+      SELECT id_producto, nombre, stock
+      FROM productos
+      WHERE stock <= 0
+      ORDER BY nombre
+    `);
+    if (sinStock.rows.length > 0) {
+      alerts.push({
+        id: 'low-stock',
+        tipo: 'warning',
+        titulo: 'Productos Sin Stock Fresco',
+        mensaje: `${sinStock.rows.length} producto(s) necesitan reposición de hornada.`,
+        detalle: sinStock.rows.map(p => p.nombre).slice(0, 5).join(', ') + (sinStock.rows.length > 5 ? '...' : ''),
+        cantidad: sinStock.rows.length,
+        link: '/admin/productos',
+        fecha: new Date().toISOString()
+      });
+    }
+
+    // 2. Devoluciones pendientes de revisar
+    const devPendientes = await pool.query(`
+      SELECT COUNT(*)::int AS total
+      FROM devoluciones
+      WHERE estado = 'solicitada'
+    `);
+    if (devPendientes.rows[0].total > 0) {
+      alerts.push({
+        id: 'pending-returns',
+        tipo: 'error',
+        titulo: 'Devoluciones Pendientes',
+        mensaje: `${devPendientes.rows[0].total} solicitud(es) de devolución esperan tu revisión.`,
+        detalle: null,
+        cantidad: devPendientes.rows[0].total,
+        link: '/admin/devoluciones',
+        fecha: new Date().toISOString()
+      });
+    }
+
+    // 3. Pedidos pendientes de confirmar
+    const pedPendientes = await pool.query(`
+      SELECT COUNT(*)::int AS total
+      FROM pedidos
+      WHERE estado = 'pendiente'
+    `);
+    if (pedPendientes.rows[0].total > 0) {
+      alerts.push({
+        id: 'pending-orders',
+        tipo: 'info',
+        titulo: 'Pedidos por Confirmar',
+        mensaje: `${pedPendientes.rows[0].total} pedido(s) nuevos esperan confirmación.`,
+        detalle: null,
+        cantidad: pedPendientes.rows[0].total,
+        link: '/admin/pedidos',
+        fecha: new Date().toISOString()
+      });
+    }
+
+    res.json({ success: true, data: alerts, total: alerts.length });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/admin/reports
  * Inteligencia de Negocios (BI) — Datos analíticos completos para gráficos
  */

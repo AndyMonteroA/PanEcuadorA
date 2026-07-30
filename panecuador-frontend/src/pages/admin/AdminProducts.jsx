@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { adminAPI } from '../../services/api';
-import { FiPlus, FiEdit2, FiTrash2, FiImage, FiRefreshCw, FiGrid, FiList, FiUploadCloud, FiCamera } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiImage, FiRefreshCw, FiGrid, FiList, FiUploadCloud, FiCamera, FiAlertTriangle } from 'react-icons/fi';
 
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
@@ -225,6 +225,20 @@ export default function AdminProducts() {
                       <div className="image-overlay">
                         <FiEdit2 size={18} /> Editar producto
                       </div>
+                      {/* Alerta visual de stock agotado */}
+                      {p.stock <= 0 && (
+                        <div style={{
+                          position: 'absolute', top: '8px', left: '8px',
+                          background: '#fef3c7', border: '1px solid #fde68a',
+                          borderRadius: '8px', padding: '4px 10px',
+                          display: 'flex', alignItems: 'center', gap: '5px',
+                          fontSize: '0.7rem', fontWeight: 700, color: '#92400e',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                          zIndex: 5
+                        }}>
+                          <FiAlertTriangle size={12} /> Sin Stock
+                        </div>
+                      )}
                     </div>
 
                     <div className="product-card-body">
