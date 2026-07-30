@@ -1366,5 +1366,224 @@ router.put('/site-config', async (req, res, next) => {
   }
 });
 
-module.exports = router;
+// ============================================================
+// PRECIOS Y GANANCIAS — Fórmula del Profesor
+// PV(t) = PV(t-1) + ΔC(t) + I
+// G(t) = PV(t) - PC(t)
+// ============================================================
 
+// GET /api/admin/pricing — Listar productos con precios de compra/venta/ganancia
+router.get('/pricing', async (req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT p.id_producto, p.nombre, p.precio AS precio_venta, p.precio_compra,
+             p.incremento_mensual, p.stock,
+             (p.precio - p.precio_compra) AS ganancia_unitaria,
+             pr.nombre_negocio AS productor_nombre,
+             c.nombre AS categoria_nombre,
+             (SELECT COALESCE(SUM(dp.cantidad), 0) FROM detalle_pedido dp
+              JOIN pedidos ped ON dp.id_pedido = ped.id_pedido
+              WHERE dp.id_producto = p.id_producto AND ped.estado = 'entregado') AS unidades_vendidas
+      FROM productos p
+      LEFT JOIN productores pr ON p.id_productor = pr.id_productor
+      LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+      ORDER BY p.nombre
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error) { next(error); }
+});
+
+// PUT /api/admin/products/:id/pricing — Actualizar precio de compra (con fórmula)
+router.put('/products/:id/pricing', async (req, res, next) => {
+  try {
+    const { precio_compra, incremento_mensual, motivo } = req.body;
+    const productId = req.params.id;
+
+    const current = await pool.query('SELECT precio, precio_compra, incremento_mensual FROM productos WHERE id_producto = $1', [productId]);
+    if (current.rows.length === 0) return res.status(404).json({ success: false, message: 'Producto no encontrado.' });
+
+    const old = current.rows[0];
+    const newPC = precio_compra !== undefined ? parseFloat(precio_compra) : parseFloat(old.precio_compra);
+    const newI = incremento_mensual !== undefined ? parseFloat(incremento_mensual) : parseFloat(old.incremento_mensual);
+    const deltaC = newPC - parseFloat(old.precio_compra); // ΔC(t)
+    
+    // PV(t) = PV(t-1) + ΔC(t) (solo si cambió el precio de compra)
+    let newPV = parseFloat(old.precio);
+    if (deltaC !== 0) {
+      newPV = parseFloat(old.precio) + deltaC;
+    }
+
+    const gananciaUnitaria = newPV - newPC;
+
+    // Actualizar producto
+    await pool.query(
+      'UPDATE productos SET precio = $1, precio_compra = $2, incremento_mensual = $3 WHERE id_producto = $4',
+      [newPV.toFixed(2), newPC.toFixed(2), newI.toFixed(2), productId]
+    );
+
+    // Registrar en historial
+    await pool.query(`
+      INSERT INTO historial_precios (id_producto, precio_compra_anterior, precio_compra_nuevo,
+        precio_venta_anterior, precio_venta_nuevo, delta_compra, incremento_aplicado,
+        ganancia_unitaria, motivo, actor)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `, [productId, old.precio_compra, newPC.toFixed(2), old.precio, newPV.toFixed(2),
+        deltaC.toFixed(2), 0, gananciaUnitaria.toFixed(2),
+        motivo || 'Ajuste de precio de compra del proveedor', 'Administrador']);
+
+    res.json({ success: true, message: 'Precio actualizado con fórmula del profesor.', data: { precio_venta: newPV, precio_compra: newPC, ganancia_unitaria: gananciaUnitaria } });
+  } catch (error) { next(error); }
+});
+
+// POST /api/admin/products/:id/apply-increment — Aplicar incremento mensual I
+router.post('/products/:id/apply-increment', async (req, res, next) => {
+  try {
+    const productId = req.params.id;
+    const current = await pool.query('SELECT precio, precio_compra, incremento_mensual FROM productos WHERE id_producto = $1', [productId]);
+    if (current.rows.length === 0) return res.status(404).json({ success: false, message: 'Producto no encontrado.' });
+
+    const old = current.rows[0];
+    const I = parseFloat(old.incremento_mensual);
+    const newPV = parseFloat(old.precio) + I;
+    const ganancia = newPV - parseFloat(old.precio_compra);
+
+    await pool.query('UPDATE productos SET precio = $1 WHERE id_producto = $2', [newPV.toFixed(2), productId]);
+
+    await pool.query(`
+      INSERT INTO historial_precios (id_producto, precio_compra_anterior, precio_compra_nuevo,
+        precio_venta_anterior, precio_venta_nuevo, delta_compra, incremento_aplicado,
+        ganancia_unitaria, motivo, actor)
+      VALUES ($1, $2, $2, $3, $4, 0, $5, $6, $7, $8)
+    `, [productId, old.precio_compra, old.precio, newPV.toFixed(2),
+        I.toFixed(2), ganancia.toFixed(2), 'Incremento mensual fijo (I)', 'Administrador']);
+
+    res.json({ success: true, message: `Incremento de $${I.toFixed(2)} aplicado. Nuevo PV: $${newPV.toFixed(2)}` });
+  } catch (error) { next(error); }
+});
+
+// POST /api/admin/apply-all-increments — Aplicar incremento mensual a TODOS los productos
+router.post('/apply-all-increments', async (req, res, next) => {
+  try {
+    const products = await pool.query('SELECT id_producto, precio, precio_compra, incremento_mensual FROM productos WHERE disponible = TRUE');
+    let count = 0;
+    for (const p of products.rows) {
+      const I = parseFloat(p.incremento_mensual);
+      if (I <= 0) continue;
+      const newPV = parseFloat(p.precio) + I;
+      const ganancia = newPV - parseFloat(p.precio_compra);
+      await pool.query('UPDATE productos SET precio = $1 WHERE id_producto = $2', [newPV.toFixed(2), p.id_producto]);
+      await pool.query(`
+        INSERT INTO historial_precios (id_producto, precio_compra_anterior, precio_compra_nuevo,
+          precio_venta_anterior, precio_venta_nuevo, delta_compra, incremento_aplicado,
+          ganancia_unitaria, motivo, actor)
+        VALUES ($1, $2, $2, $3, $4, 0, $5, $6, $7, $8)
+      `, [p.id_producto, p.precio_compra, p.precio, newPV.toFixed(2),
+          I.toFixed(2), ganancia.toFixed(2), 'Incremento mensual automático a todos los productos', 'Sistema']);
+      count++;
+    }
+    res.json({ success: true, message: `Incremento mensual aplicado a ${count} productos.` });
+  } catch (error) { next(error); }
+});
+
+// GET /api/admin/pricing-history/:productId — Historial de precios de un producto
+router.get('/pricing-history/:productId', async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM historial_precios WHERE id_producto = $1 ORDER BY fecha DESC LIMIT 50',
+      [req.params.productId]
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (error) { next(error); }
+});
+
+// GET /api/admin/profit-stats — Estadísticas de ganancia y fondo de reinversión
+router.get('/profit-stats', async (req, res, next) => {
+  try {
+    const fondoTotal = await pool.query(
+      "SELECT COALESCE(SUM(ganancia_total), 0) as total FROM fondo_reinversion WHERE tipo = 'venta'"
+    );
+    const reinvertido = await pool.query(
+      "SELECT COALESCE(SUM(ABS(ganancia_total)), 0) as total FROM fondo_reinversion WHERE tipo = 'reinversion'"
+    );
+    const topProducts = await pool.query(`
+      SELECT p.nombre, SUM(fr.ganancia_total) as ganancia_acumulada, SUM(fr.cantidad_vendida) as total_vendido
+      FROM fondo_reinversion fr
+      JOIN productos p ON fr.id_producto = p.id_producto
+      WHERE fr.tipo = 'venta'
+      GROUP BY p.nombre
+      ORDER BY ganancia_acumulada DESC LIMIT 10
+    `);
+    const movimientos = await pool.query(
+      'SELECT * FROM fondo_reinversion ORDER BY fecha DESC LIMIT 20'
+    );
+    res.json({
+      success: true,
+      data: {
+        fondo_acumulado: parseFloat(fondoTotal.rows[0].total),
+        total_reinvertido: parseFloat(reinvertido.rows[0].total),
+        saldo_disponible: parseFloat(fondoTotal.rows[0].total) - parseFloat(reinvertido.rows[0].total),
+        top_productos: topProducts.rows,
+        ultimos_movimientos: movimientos.rows
+      }
+    });
+  } catch (error) { next(error); }
+});
+
+// GET /api/admin/pending-replenishments — Pendientes de reposición
+router.get('/pending-replenishments', async (req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT pr.*, p.nombre AS producto_nombre, prod.nombre_negocio AS productor_nombre
+      FROM pendiente_reposicion pr
+      JOIN productos p ON pr.id_producto = p.id_producto
+      LEFT JOIN productores prod ON p.id_productor = prod.id_productor
+      ORDER BY pr.fecha_registro DESC
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error) { next(error); }
+});
+
+// PUT /api/admin/pending-replenishments/:id — Actualizar estado de reposición
+router.put('/pending-replenishments/:id', async (req, res, next) => {
+  try {
+    const { estado } = req.body;
+    const result = await pool.query(
+      `UPDATE pendiente_reposicion SET estado = $1, fecha_resolucion = CASE WHEN $1 = 'recibido' THEN NOW() ELSE fecha_resolucion END WHERE id_pendiente = $2 RETURNING *`,
+      [estado, req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'No encontrado.' });
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) { next(error); }
+});
+
+// ============================================================
+// ESTADOS DE ENVÍO — Trazabilidad
+// ============================================================
+
+router.get('/orders/:id/shipping-states', async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM estados_envio WHERE id_pedido = $1 ORDER BY fecha ASC',
+      [req.params.id]
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (error) { next(error); }
+});
+
+router.post('/orders/:id/shipping-states', upload.single('evidencia'), async (req, res, next) => {
+  try {
+    const { estado, descripcion, registrado_por } = req.body;
+    let evidenciaUrl = null;
+    if (req.file) {
+      evidenciaUrl = `/uploads/${req.file.filename}`;
+    }
+    const result = await pool.query(
+      `INSERT INTO estados_envio (id_pedido, estado, descripcion, evidencia_url, registrado_por)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [req.params.id, estado, descripcion || null, evidenciaUrl, registrado_por || 'Administrador']
+    );
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) { next(error); }
+});
+
+module.exports = router;

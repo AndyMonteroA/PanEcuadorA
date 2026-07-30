@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../../services/api';
+import { FiImage, FiX, FiEye } from 'react-icons/fi';
 
 export default function AdminReturns() {
   const [returns, setReturns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
   const [alert, setAlert] = useState(null);
+  const [viewImage, setViewImage] = useState(null);
 
   useEffect(() => { loadReturns(); }, [filter]);
 
@@ -40,6 +42,8 @@ export default function AdminReturns() {
     return <span className={`admin-badge ${colors[estado] || ''}`}>{estado.replace('_', ' ')}</span>;
   };
 
+  const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || '';
+
   return (
     <div>
       <div className="admin-section-header">
@@ -68,6 +72,7 @@ export default function AdminReturns() {
                 <th>Pedido</th>
                 <th>Total Pedido</th>
                 <th>Motivo</th>
+                <th>Evidencia</th>
                 <th>Estado</th>
                 <th>Fecha</th>
                 <th>Cambiar Estado</th>
@@ -88,6 +93,19 @@ export default function AdminReturns() {
                   <td style={{fontWeight:600}}>${parseFloat(r.total).toFixed(2)}</td>
                   <td style={{maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={r.motivo}>
                     {r.motivo}
+                  </td>
+                  <td>
+                    {r.evidencia_url ? (
+                      <button
+                        className="btn-admin btn-admin-sm btn-admin-edit"
+                        onClick={() => setViewImage(API_BASE + r.evidencia_url)}
+                        title="Ver evidencia"
+                      >
+                        <FiImage size={14} /> <FiEye size={12} />
+                      </button>
+                    ) : (
+                      <span style={{fontSize:'0.72rem',color:'#71717a'}}>Sin evidencia</span>
+                    )}
                   </td>
                   <td>{statusBadge(r.estado)}</td>
                   <td style={{fontSize:'0.78rem',color:'#a1a1aa'}}>
@@ -111,8 +129,8 @@ export default function AdminReturns() {
                 </tr>
               ))}
               {returns.length === 0 && (
-                <tr><td colSpan={8} className="admin-empty">
-                  <div className="admin-empty-icon">📦</div>
+                <tr><td colSpan={9} className="admin-empty">
+                  <div className="admin-empty-icon"><FiImage size={32} /></div>
                   <p>No hay devoluciones {filter ? `con estado "${filter}"` : ''}</p>
                 </td></tr>
               )}
@@ -120,6 +138,34 @@ export default function AdminReturns() {
           </table>
         )}
       </div>
+
+      {/* Image Viewer Modal */}
+      {viewImage && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.85)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }} onClick={() => setViewImage(null)}>
+          <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setViewImage(null)}
+              style={{
+                position: 'absolute', top: -12, right: -12,
+                background: '#ef4444', color: '#fff', border: 'none',
+                borderRadius: '50%', width: 32, height: 32,
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}
+            >
+              <FiX size={16} />
+            </button>
+            <img
+              src={viewImage}
+              alt="Evidencia de devolución"
+              style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: '12px', objectFit: 'contain' }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

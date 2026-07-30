@@ -3,6 +3,14 @@ const router = express.Router();
 const pool = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
+const multer = require('multer');
+const path = require('path');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, 'public/uploads/'),
+  filename: (req, file, cb) => cb(null, `evidencia_${Date.now()}_${Math.round(Math.random()*1E9)}${path.extname(file.originalname)}`)
+});
+const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
 /**
  * GET /api/reviews/product/:id
@@ -170,17 +178,17 @@ router.post('/favorites/:productId', authMiddleware, async (req, res, next) => {
  * POST /api/reviews/returns
  * Solicitar devolución
  */
-router.post('/returns', authMiddleware, [
-  body('id_pedido').isInt(),
-  body('motivo').trim().notEmpty().withMessage('El motivo es obligatorio')
-], async (req, res, next) => {
+router.post('/returns', authMiddleware, upload.single('evidencia'), async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+    const { id_pedido, motivo } = req.body;
+    if (!id_pedido || !motivo) {
+      return res.status(400).json({ success: false, message: 'El ID de pedido y el motivo son obligatorios.' });
     }
 
-    const { id_pedido, motivo } = req.body;
+    let evidenciaUrl = null;
+    if (req.file) {
+      evidenciaUrl = `/uploads/${req.file.filename}`;
+    }
 
     // Verificar que el pedido pertenece al usuario y está entregado
     const pedido = await pool.query(
@@ -209,10 +217,10 @@ router.post('/returns', authMiddleware, [
     }
 
     const result = await pool.query(`
-      INSERT INTO devoluciones (id_pedido, id_usuario, motivo)
-      VALUES ($1, $2, $3)
+      INSERT INTO devoluciones (id_pedido, id_usuario, motivo, evidencia_url)
+      VALUES ($1, $2, $3, $4)
       RETURNING *
-    `, [id_pedido, req.user.id, motivo]);
+    `, [id_pedido, req.user.id, motivo, evidenciaUrl]);
 
     // Notificación
     await pool.query(`

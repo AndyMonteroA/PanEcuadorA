@@ -222,12 +222,8 @@ export default function ProductDetail() {
             <span className="pd-category">{product.categoria_nombre}</span>
             <h1 className="pd-name">{product.nombre}</h1>
 
-            {product.productor_nombre && (
-              <p className="pd-producer">
-                <FiPackage size={14} /> por <strong>{product.productor_nombre}</strong>
-                {product.productor_ciudad && ` — ${product.productor_ciudad}`}
-              </p>
-            )}
+
+
 
             {/* Rating */}
             <div className="pd-rating">

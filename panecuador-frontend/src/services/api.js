@@ -112,7 +112,9 @@ export const reviewsAPI = {
   create: (data) => api.post('/reviews', data),
   getFavorites: () => api.get('/reviews/favorites'),
   toggleFavorite: (productId) => api.post(`/reviews/favorites/${productId}`),
-  createReturn: (data) => api.post('/reviews/returns', data),
+  createReturn: (data) => data instanceof FormData 
+    ? api.post('/reviews/returns', data, { headers: { 'Content-Type': 'multipart/form-data' } })
+    : api.post('/reviews/returns', data),
 };
 
 // ============================================================
@@ -205,6 +207,24 @@ export const adminAPI = {
   generateShifts: () => api.post('/admin/generate-shifts'),
   getReturnsCount: () => api.get('/admin/returns-count'),
   getReports: () => api.get('/admin/reports'),
+
+  // Pricing & Profits (Fórmula del Profesor)
+  getPricing: () => api.get('/admin/pricing'),
+  updatePricing: (id, data) => api.put(`/admin/products/${id}/pricing`, data),
+  applyMonthlyIncrement: (id) => api.post(`/admin/products/${id}/apply-increment`),
+  applyAllIncrements: () => api.post('/admin/apply-all-increments'),
+  getPricingHistory: (id) => api.get(`/admin/pricing-history/${id}`),
+  getProfitStats: () => api.get('/admin/profit-stats'),
+
+  // Pending Replenishments
+  getPendingReplenishments: () => api.get('/admin/pending-replenishments'),
+  updateReplenishment: (id, data) => api.put(`/admin/pending-replenishments/${id}`, data),
+
+  // Shipping States
+  getShippingStates: (orderId) => api.get(`/admin/orders/${orderId}/shipping-states`),
+  addShippingState: (orderId, formData) => api.post(`/admin/orders/${orderId}/shipping-states`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
 };
 
 // ============================================================

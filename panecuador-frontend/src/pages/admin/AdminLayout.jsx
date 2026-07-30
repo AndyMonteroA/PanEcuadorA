@@ -68,6 +68,9 @@ export default function AdminLayout() {
           <NavLink to="/admin/cupones" className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}>
             <FiPercent /> Cupones
           </NavLink>
+          <NavLink to="/admin/precios" className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}>
+            <FiBarChart2 /> Precios y Ganancias
+          </NavLink>
           <NavLink to="/admin/devoluciones" className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}>
             <FiRotateCw /> Devoluciones
           </NavLink>

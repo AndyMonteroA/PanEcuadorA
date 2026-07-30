@@ -54,15 +54,10 @@ router.post('/', authMiddleware, async (req, res, next) => {
       });
     }
 
-    // 3. Procesar ítems y descontar stock disponible si existe (Horneado Bajo Pedido si no hay stock)
+    // 3. Identificar si hay stock insuficiente (para cálculo de fecha dinámica)
+    let hayStockInsuficiente = false;
     for (const item of items) {
-      if (item.stock > 0) {
-        const stockADescontar = Math.min(item.stock, item.cantidad);
-        await client.query(
-          'UPDATE productos SET stock = stock - $1 WHERE id_producto = $2',
-          [stockADescontar, item.id_producto]
-        );
-      }
+      if (item.cantidad > item.stock) hayStockInsuficiente = true;
     }
 
     // 4. Verificar dirección pertenece al usuario
@@ -143,7 +138,7 @@ router.post('/', authMiddleware, async (req, res, next) => {
 
     const total = Math.max(0, subtotal - descuento);
 
-    // Calcular fecha y franja horaria estimada (Estilo Amazon)
+    // Calcular fecha y franja horaria estimada (Dinámica — Fórmula del Profesor)
     let finalFechaEntrega = fecha_entrega_programada;
     let finalFranjaHoraria = franja_horaria;
 
@@ -151,14 +146,20 @@ router.post('/', authMiddleware, async (req, res, next) => {
       const now = new Date();
       let diasAAgregar = 1;
       
-      // Si el pedido se realiza después de las 18:00 (6:00 PM), se agrega 1 día más
-      if (now.getHours() >= 18) {
-        diasAAgregar += 1;
-      }
+      // Factor 1: Hora del pedido — después de las 18:00 +1 día
+      if (now.getHours() >= 18) diasAAgregar += 1;
       
-      // Si la preparación total supera las 5 horas (300 minutos), se agrega 1 día más
-      if (tiempoEstimadoTotal > 300) {
-        diasAAgregar += 1;
+      // Factor 2: Complejidad — preparación > 5 horas +1 día
+      if (tiempoEstimadoTotal > 300) diasAAgregar += 1;
+      
+      // Factor 3: Stock insuficiente — tiempo de reposición del proveedor +1 día
+      if (hayStockInsuficiente) diasAAgregar += 1;
+      
+      // Factor 4: Zona geográfica — si provincia ≠ Los Ríos +1 día envío interprovincial
+      const dirData = await client.query('SELECT provincia FROM direcciones WHERE id_direccion = $1', [id_direccion]);
+      if (dirData.rows.length > 0) {
+        const prov = (dirData.rows[0].provincia || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        if (prov !== 'los rios') diasAAgregar += 1;
       }
       
       const fechaCalculada = new Date();
@@ -167,7 +168,7 @@ router.post('/', authMiddleware, async (req, res, next) => {
     }
 
     if (!finalFranjaHoraria) {
-      finalFranjaHoraria = '09:00 - 12:00'; // Franja por defecto por la mañana
+      finalFranjaHoraria = '09:00 - 12:00';
     }
 
     // 9. Crear el pedido
@@ -197,7 +198,7 @@ router.post('/', authMiddleware, async (req, res, next) => {
       );
     }
 
-    // 10. Crear detalle del pedido y actualizar stock
+    // 10. Crear detalle del pedido, descontar stock, registrar reposiciones y ganancias
     for (const item of items) {
       const itemSubtotal = parseFloat(item.precio) * item.cantidad;
 
@@ -207,11 +208,38 @@ router.post('/', authMiddleware, async (req, res, next) => {
       `, [pedido.id_pedido, item.id_producto, item.cantidad,
           parseFloat(item.precio).toFixed(2), itemSubtotal.toFixed(2)]);
 
-      // Descontar stock
-      await client.query(
-        'UPDATE productos SET stock = stock - $1 WHERE id_producto = $2',
-        [item.cantidad, item.id_producto]
-      );
+      // Descontar stock disponible (puede quedar negativo, se permite venta sobre stock)
+      const stockActual = item.stock || 0;
+      const stockADescontar = Math.min(stockActual, item.cantidad);
+      if (stockADescontar > 0) {
+        await client.query(
+          'UPDATE productos SET stock = stock - $1 WHERE id_producto = $2',
+          [stockADescontar, item.id_producto]
+        );
+      }
+
+      // Registrar pendiente de reposición si cantidad > stock
+      if (item.cantidad > stockActual) {
+        const cantidadPendiente = item.cantidad - stockActual;
+        await client.query(`
+          INSERT INTO pendiente_reposicion (id_producto, id_pedido, cantidad_pendiente)
+          VALUES ($1, $2, $3)
+        `, [item.id_producto, pedido.id_pedido, cantidadPendiente]);
+      }
+
+      // Acumular ganancia en fondo de reinversión: G_total = G(t) × cantidad
+      const precioCompraRes = await client.query('SELECT precio_compra FROM productos WHERE id_producto = $1', [item.id_producto]);
+      const precioCompra = parseFloat(precioCompraRes.rows[0]?.precio_compra || 0);
+      const gananciaUnit = parseFloat(item.precio) - precioCompra;
+      const gananciaTotal = gananciaUnit * item.cantidad;
+      if (gananciaUnit > 0) {
+        await client.query(`
+          INSERT INTO fondo_reinversion (id_pedido, id_producto, cantidad_vendida, ganancia_unitaria, ganancia_total, tipo, descripcion)
+          VALUES ($1, $2, $3, $4, $5, 'venta', $6)
+        `, [pedido.id_pedido, item.id_producto, item.cantidad,
+            gananciaUnit.toFixed(2), gananciaTotal.toFixed(2),
+            `Venta de ${item.cantidad}x ${item.nombre}`]);
+      }
     }
 
     // 11. Vaciar carrito

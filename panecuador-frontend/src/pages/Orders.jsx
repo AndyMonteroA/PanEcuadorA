@@ -29,6 +29,8 @@ export default function Orders() {
   const [submittingReturn, setSubmittingReturn] = useState(false);
   const [returnError, setReturnError] = useState('');
   const [returnSuccess, setReturnSuccess] = useState(false);
+  const [returnEvidencia, setReturnEvidencia] = useState(null);
+  const [returnEvidenciaPreview, setReturnEvidenciaPreview] = useState(null);
 
   // Review & Rating state per product item
   const [activeReviewItem, setActiveReviewItem] = useState(null);
@@ -96,12 +98,17 @@ export default function Orders() {
     setReturnError('');
     try {
       const motivoCompleto = `${returnMotivo}: ${returnComentarios.trim()}`;
-      await reviewsAPI.createReturn({
-        id_pedido: selectedOrder.id_pedido,
-        motivo: motivoCompleto
-      });
+      const formData = new FormData();
+      formData.append('id_pedido', selectedOrder.id_pedido);
+      formData.append('motivo', motivoCompleto);
+      if (returnEvidencia) {
+        formData.append('evidencia', returnEvidencia);
+      }
+      await reviewsAPI.createReturn(formData);
       setReturnSuccess(true);
       setShowReturnForm(false);
+      setReturnEvidencia(null);
+      setReturnEvidenciaPreview(null);
       viewDetail(selectedOrder.id_pedido);
       fetchOrders();
     } catch (err) {
@@ -512,6 +519,27 @@ export default function Orders() {
                             <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Comentarios adicionales</label>
                             <textarea className="input" rows={3} placeholder="Explica detalladamente la razón de la devolución..." required value={returnComentarios} onChange={e => setReturnComentarios(e.target.value)}
                               style={{ width: '100%', background: 'var(--bg-primary)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '8px', borderRadius: '4px' }} />
+                          </div>
+
+                          <div className="input-group" style={{ marginBottom: '12px' }}>
+                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>📸 Adjuntar evidencia (foto del producto dañado)</label>
+                            <input type="file" accept="image/*" onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                setReturnEvidencia(file);
+                                const reader = new FileReader();
+                                reader.onload = (ev) => setReturnEvidenciaPreview(ev.target.result);
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                              style={{ width: '100%', fontSize: '0.8rem', color: 'var(--text-secondary)' }} />
+                            {returnEvidenciaPreview && (
+                              <div style={{ marginTop: '8px', position: 'relative', display: 'inline-block' }}>
+                                <img src={returnEvidenciaPreview} alt="Preview" style={{ maxHeight: '120px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                                <button type="button" onClick={() => { setReturnEvidencia(null); setReturnEvidenciaPreview(null); }}
+                                  style={{ position: 'absolute', top: -6, right: -6, background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, cursor: 'pointer', fontSize: '10px' }}>✕</button>
+                              </div>
+                            )}
                           </div>
                           
                           <div style={{ display: 'flex', gap: '10px' }}>

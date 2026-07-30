@@ -38,20 +38,31 @@ export default function Checkout() {
   useEffect(() => {
     if (items.length > 0) {
       const now = new Date();
-      const cutoffHour = 18; // 6:00 PM
+      const cutoffHour = 18;
       const totalElabMin = resumen.tiempoElaboracionEstimado || 0;
       
-      let daysToAdd = 1; // Por defecto: Mañana
-      let reason = '🥖 Pedido procesado a tiempo para la entrega del día siguiente.';
+      let daysToAdd = 1;
+      let reasons = [];
       
       if (now.getHours() >= cutoffHour) {
         daysToAdd += 1;
-        reason = '🌙 Pedido realizado después de la hora límite (6:00 PM), programado para el día siguiente.';
+        reasons.push('🌙 Pedido realizado después de las 6:00 PM, se programa para el siguiente día hábil.');
       }
       
       if (totalElabMin > 300) {
         daysToAdd += 1;
-        reason = '⚠️ Contiene productos con alto tiempo de preparación, requiere 1 día adicional de elaboración artesanal.';
+        reasons.push('⚠️ Contiene productos con alto tiempo de preparación artesanal (+1 día).');
+      }
+
+      // Factor: stock insuficiente
+      const hayStockBajo = items.some(item => (item.cantidad || 1) > (item.stock || 0));
+      if (hayStockBajo) {
+        daysToAdd += 1;
+        reasons.push('⏳ Algunos productos requieren reposición del proveedor (+1 día).');
+      }
+      
+      if (reasons.length === 0) {
+        reasons.push('🥖 Pedido procesado a tiempo para entrega del día siguiente.');
       }
       
       const deliveryDate = new Date();
@@ -75,7 +86,7 @@ export default function Checkout() {
       setEstimatedDelivery({
         dateStr,
         formatted: formattedCapitalized,
-        reason
+        reason: reasons.join(' ')
       });
     }
   }, [items, resumen.tiempoElaboracionEstimado]);
@@ -132,10 +143,26 @@ export default function Checkout() {
 
   const detectCardBrand = (number) => {
     const clean = number.replace(/\D/g, '');
-    if (clean.startsWith('4')) return 'Visa';
-    if (clean.startsWith('5') || clean.startsWith('2')) return 'Mastercard';
-    if (clean.startsWith('3')) return 'Diners';
-    return 'Visa';
+    if (/^4/.test(clean)) return 'Visa';
+    if (/^5[1-5]/.test(clean) || /^2[2-7]/.test(clean)) return 'Mastercard';
+    if (/^3[47]/.test(clean)) return 'American Express';
+    if (/^36|^30[0-5]|^38/.test(clean)) return 'Diners';
+    if (/^6011|^65|^64[4-9]/.test(clean)) return 'Discover';
+    return 'Tarjeta';
+  };
+
+  const luhnCheck = (number) => {
+    const clean = number.replace(/\D/g, '');
+    if (clean.length < 13 || clean.length > 19) return false;
+    let sum = 0;
+    let alt = false;
+    for (let i = clean.length - 1; i >= 0; i--) {
+      let n = parseInt(clean[i], 10);
+      if (alt) { n *= 2; if (n > 9) n -= 9; }
+      sum += n;
+      alt = !alt;
+    }
+    return sum % 10 === 0;
   };
 
   useEffect(() => {

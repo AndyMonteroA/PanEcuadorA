@@ -124,9 +124,7 @@ export default function ProductCard({ product, isFavorite: initialFav = false })
         <span className="product-category">{product.categoria_nombre}</span>
         <h3 className="product-name">{product.nombre}</h3>
 
-        {product.productor_nombre && (
-          <span className="product-producer">por {product.productor_nombre}</span>
-        )}
+
 
         {/* Rating */}
         <div className="product-rating">

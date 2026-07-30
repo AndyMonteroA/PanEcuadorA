@@ -184,9 +184,8 @@ function CartItem({ item, updateQuantity, removeItem }) {
         <Link to={`/producto/${item.id_producto}`} className="cart-item-name">
           {item.nombre}
         </Link>
-        {item.productor_nombre && (
-          <span className="cart-item-producer">por {item.productor_nombre}</span>
-        )}
+
+
       </div>
 
       <div className="cart-item-quantity">
