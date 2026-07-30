@@ -67,24 +67,16 @@ router.post('/', authMiddleware, async (req, res, next) => {
   try {
     const { id_producto, cantidad = 1 } = req.body;
 
-    // Verificar que el producto existe y está disponible
+    // Verificar que el producto existe
     const producto = await pool.query(
-      'SELECT * FROM productos WHERE id_producto = $1 AND disponible = TRUE',
+      'SELECT * FROM productos WHERE id_producto = $1',
       [id_producto]
     );
 
     if (producto.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Producto no encontrado o no disponible.'
-      });
-    }
-
-    // Verificar stock
-    if (producto.rows[0].stock < cantidad) {
-      return res.status(400).json({
-        success: false,
-        message: `Stock insuficiente. Disponible: ${producto.rows[0].stock}`
+        message: 'Producto no encontrado.'
       });
     }
 

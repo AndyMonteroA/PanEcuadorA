@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { FiGrid, FiBox, FiShoppingBag, FiTag, FiUsers, FiLogOut, FiArrowLeft, FiTruck, FiClock, FiPercent, FiRotateCw, FiCalendar, FiSettings, FiBarChart2 } from 'react-icons/fi';
+import { FiGrid, FiBox, FiShoppingBag, FiTag, FiUsers, FiLogOut, FiArrowLeft, FiTruck, FiClock, FiPercent, FiRotateCw, FiCalendar, FiSettings, FiBarChart2, FiBell } from 'react-icons/fi';
 import './Admin.css';
 
 const PARTICLES = ['🍞', '🥐', '🥖', '🧁', '🎂', '🍰'];
@@ -8,6 +9,7 @@ const PARTICLES = ['🍞', '🥐', '🥖', '🧁', '🎂', '🍰'];
 export default function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [showNotif, setShowNotif] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -97,10 +99,65 @@ export default function AdminLayout() {
 
       <div className="admin-main">
         <header className="admin-topbar">
-          <h1>Panel de Administración</h1>
-          <div className="admin-topbar-right">
-            <span>{user?.nombre} {user?.apellido}</span>
-            <span className="admin-badge badge-admin">Admin</span>
+          <h1 style={{ color: '#0f172a', fontWeight: 800 }}>Panel de Administración</h1>
+          <div className="admin-topbar-right" style={{ gap: '20px' }}>
+            {/* Live Alert Bell */}
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowNotif(!showNotif)}
+                style={{
+                  background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '10px',
+                  padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px',
+                  cursor: 'pointer', color: '#0f172a', fontWeight: 600, fontSize: '0.82rem'
+                }}
+              >
+                <FiBell size={18} style={{ color: '#d97706' }} />
+                <span>Alertas</span>
+                <span style={{ background: '#ef4444', color: '#fff', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '10px', fontWeight: 700 }}>3</span>
+              </button>
+
+              {/* Notification Dropdown */}
+              {showNotif && (
+                <div style={{
+                  position: 'absolute', top: '48px', right: 0, width: '340px',
+                  background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '14px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.15)', zIndex: 1000, overflow: 'hidden'
+                }}>
+                  <div style={{ padding: '14px 18px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>🔔 Centro de Alertas Operativas</strong>
+                    <span style={{ fontSize: '0.72rem', color: '#64748b' }}>En vivo</span>
+                  </div>
+                  <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                    <div
+                      onClick={() => { navigate('/admin/precios'); setShowNotif(false); }}
+                      style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', transition: 'background 0.15s' }}
+                    >
+                      <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#b45309' }}>🥖 Horneado / Stock Bajo</div>
+                      <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '2px' }}>Hay productos sin stock fresco. Los pedidos se toman como "Bajo pedido".</div>
+                    </div>
+                    <div
+                      onClick={() => { navigate('/admin/devoluciones'); setShowNotif(false); }}
+                      style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', transition: 'background 0.15s' }}
+                    >
+                      <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#dc2626' }}>📦 Solicitud de Devolución</div>
+                      <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '2px' }}>Nueva evidencia de devolución cargada por cliente.</div>
+                    </div>
+                    <div
+                      onClick={() => { navigate('/admin/pedidos'); setShowNotif(false); }}
+                      style={{ padding: '12px 16px', cursor: 'pointer', transition: 'background 0.15s' }}
+                    >
+                      <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#2563eb' }}>🚚 Despachos del Día</div>
+                      <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '2px' }}>Verifica los pedidos programados para la franja 09:00 - 12:00.</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontWeight: 600, color: '#0f172a' }}>{user?.nombre} {user?.apellido}</span>
+              <span className="admin-badge badge-admin">Admin</span>
+            </div>
           </div>
         </header>
 

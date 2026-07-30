@@ -101,8 +101,7 @@ export default function ProductCard({ product, isFavorite: initialFav = false })
           <button
             className="product-action-btn cart-btn"
             onClick={handleAddToCart}
-            title="Agregar al carrito"
-            disabled={!product.disponible || product.stock <= 0}
+            title={product.stock <= 0 ? "Reservar (Horneado bajo pedido)" : "Agregar al carrito"}
           >
             <FiShoppingCart size={18} />
           </button>
