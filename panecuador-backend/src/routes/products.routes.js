@@ -41,13 +41,16 @@ router.get('/', optionalAuth, async (req, res, next) => {
     const params = [];
     let paramIndex = 1;
 
-    // Filtro por categoría
+    // Filtro por categoría (soporta ID o nombre)
     if (categoria) {
-      conditions.push(`p.id_categoria = $${paramIndex++}`);
-      params.push(categoria);
-    }
-
-    // Filtro por productor
+      if (!isNaN(categoria)) {
+        conditions.push(`p.id_categoria = $${paramIndex++}`);
+        params.push(parseInt(categoria));
+      } else {
+        conditions.push(`c.nombre ILIKE $${paramIndex++}`);
+        params.push(`%${categoria}%`);
+      }
+    } // Filtro por productor
     if (productor) {
       conditions.push(`p.id_productor = $${paramIndex++}`);
       params.push(productor);
