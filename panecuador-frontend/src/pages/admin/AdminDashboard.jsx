@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { adminAPI } from '../../services/api';
-import { FiShoppingBag, FiDollarSign, FiUsers, FiBox, FiAlertTriangle, FiClock, FiCalendar, FiRotateCw } from 'react-icons/fi';
+import { 
+  FiShoppingBag, FiDollarSign, FiUsers, FiBox, FiAlertTriangle, 
+  FiClock, FiCalendar, FiRotateCw, FiChevronRight, FiTrendingUp, FiCheckCircle
+} from 'react-icons/fi';
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [turno, setTurno] = useState(null);
   const [expiring, setExpiring] = useState([]);
@@ -39,65 +44,125 @@ export default function AdminDashboard() {
     finally { setGenerating(false); }
   };
 
-  if (loading) return <div className="admin-loading">Cargando estadísticas...</div>;
-  if (!stats) return <div className="admin-empty">Error al cargar las estadísticas</div>;
+  if (loading) return <div className="admin-loading" style={{ color: '#64748b' }}>Cargando estadísticas en tiempo real...</div>;
+  if (!stats) return <div className="admin-empty" style={{ color: '#64748b' }}>Error al cargar las estadísticas</div>;
 
   const { resumen, pedidosRecientes, topProductos, pedidosPorEstado } = stats;
 
   return (
-    <div>
-      <div className="admin-section-header">
-        <h2>Dashboard</h2>
-        <button className="btn-admin btn-admin-ghost" onClick={handleGenerateShifts} disabled={generating}>
+    <div style={{ color: '#0f172a' }}>
+      {/* Dashboard Section Header */}
+      <div className="admin-section-header" style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+            Dashboard Principal
+          </h2>
+          <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '0.85rem' }}>
+            Resumen operativo y comercial en tiempo real. Haz clic en cualquier tarjeta para gestionar su sección.
+          </p>
+        </div>
+        <button className="btn-admin btn-admin-ghost" onClick={handleGenerateShifts} disabled={generating} style={{ borderRadius: '10px', background: '#ffffff', border: '1px solid #cbd5e1' }}>
           <FiCalendar /> {generating ? 'Generando...' : 'Generar Turnos Semana'}
         </button>
       </div>
 
       {alert && <div className={`admin-alert admin-alert-${alert.type}`}>{alert.message}</div>}
 
-      {/* Stats Cards */}
+      {/* Dynamic Clickable KPI Cards */}
       <div className="admin-stats-grid">
-        <div className="admin-stat-card accent">
-          <span className="stat-label"><FiDollarSign size={14} /> Ventas Totales</span>
-          <span className="stat-value">${resumen.ventasTotales.toFixed(2)}</span>
-          <span className="stat-sub">Hoy: ${resumen.ventasHoy.toFixed(2)}</span>
+        {/* Card 1: Ventas Totales */}
+        <div
+          className="admin-stat-card accent"
+          onClick={() => navigate('/admin/precios')}
+          style={{ cursor: 'pointer', transition: 'all 0.2s' }}
+          title="Ver módulo de Precios y Ganancias"
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="stat-label" style={{ color: '#64748b' }}><FiDollarSign size={16} /> Ventas Totales</span>
+            <FiChevronRight size={16} style={{ color: '#c47f3b' }} />
+          </div>
+          <span className="stat-value" style={{ color: '#0f172a' }}>${resumen.ventasTotales.toFixed(2)}</span>
+          <span className="stat-sub" style={{ color: '#16a34a', fontWeight: 600 }}>Hoy: +${resumen.ventasHoy.toFixed(2)}</span>
         </div>
-        <div className="admin-stat-card info">
-          <span className="stat-label"><FiShoppingBag size={14} /> Pedidos</span>
-          <span className="stat-value">{resumen.totalPedidos}</span>
-          <span className="stat-sub">Hoy: {resumen.pedidosHoy}</span>
+
+        {/* Card 2: Pedidos */}
+        <div
+          className="admin-stat-card info"
+          onClick={() => navigate('/admin/pedidos')}
+          style={{ cursor: 'pointer', transition: 'all 0.2s' }}
+          title="Ver gestión de Pedidos"
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="stat-label" style={{ color: '#64748b' }}><FiShoppingBag size={16} /> Pedidos Totales</span>
+            <FiChevronRight size={16} style={{ color: '#3b82f6' }} />
+          </div>
+          <span className="stat-value" style={{ color: '#0f172a' }}>{resumen.totalPedidos}</span>
+          <span className="stat-sub" style={{ color: '#2563eb', fontWeight: 600 }}>Hoy: {resumen.pedidosHoy} pedidos</span>
         </div>
-        <div className="admin-stat-card success">
-          <span className="stat-label"><FiUsers size={14} /> Usuarios</span>
-          <span className="stat-value">{resumen.totalUsuarios}</span>
-          <span className="stat-sub">Nuevos esta semana: {resumen.nuevosUsuarios}</span>
+
+        {/* Card 3: Usuarios */}
+        <div
+          className="admin-stat-card success"
+          onClick={() => navigate('/admin/usuarios')}
+          style={{ cursor: 'pointer', transition: 'all 0.2s' }}
+          title="Ver lista de usuarios"
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="stat-label" style={{ color: '#64748b' }}><FiUsers size={16} /> Usuarios Registrados</span>
+            <FiChevronRight size={16} style={{ color: '#10b981' }} />
+          </div>
+          <span className="stat-value" style={{ color: '#0f172a' }}>{resumen.totalUsuarios}</span>
+          <span className="stat-sub" style={{ color: '#059669', fontWeight: 600 }}>Nuevos esta semana: +{resumen.nuevosUsuarios}</span>
         </div>
-        <div className="admin-stat-card warning">
-          <span className="stat-label"><FiBox size={14} /> Productos</span>
-          <span className="stat-value">{resumen.totalProductos}</span>
+
+        {/* Card 4: Productos */}
+        <div
+          className="admin-stat-card warning"
+          onClick={() => navigate('/admin/productos')}
+          style={{ cursor: 'pointer', transition: 'all 0.2s' }}
+          title="Ver catálogo de productos"
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="stat-label" style={{ color: '#64748b' }}><FiBox size={16} /> Productos Activos</span>
+            <FiChevronRight size={16} style={{ color: '#d97706' }} />
+          </div>
+          <span className="stat-value" style={{ color: '#0f172a' }}>{resumen.totalProductos}</span>
           <span className="stat-sub">
-            {resumen.stockBajo > 0 && <><FiAlertTriangle size={12} /> {resumen.stockBajo} con stock bajo</>}
-            {resumen.stockBajo === 0 && 'Stock saludable ✓'}
+            {resumen.stockBajo > 0 ? (
+              <span style={{ color: '#dc2626', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <FiAlertTriangle size={12} /> {resumen.stockBajo} con stock bajo
+              </span>
+            ) : (
+              <span style={{ color: '#16a34a', fontWeight: 600 }}>Stock saludable ✓</span>
+            )}
           </span>
         </div>
       </div>
 
-      {/* Tarjetas operativas */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        {/* Turno actual */}
-        <div className="admin-stat-card" style={{ borderLeft: '3px solid #a855f7' }}>
-          <span className="stat-label"><FiClock size={14} /> Turno Actual</span>
-          <span className="stat-value" style={{ fontSize: '1.3rem' }}>{turno?.turno || 'Sin turno'}</span>
-          <span className="stat-sub">
+      {/* Operative Quick Alert Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '18px', marginBottom: '28px' }}>
+        {/* Turno Actual */}
+        <div
+          className="admin-stat-card"
+          onClick={() => navigate('/admin/turnos')}
+          style={{ borderLeft: '4px solid #8b5cf6', cursor: 'pointer', background: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}
+          title="Ver asignación de turnos"
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="stat-label" style={{ color: '#64748b' }}><FiClock size={16} /> Turno Actual Operativo</span>
+            <FiChevronRight size={16} style={{ color: '#8b5cf6' }} />
+          </div>
+          <span className="stat-value" style={{ fontSize: '1.4rem', color: '#0f172a' }}>{turno?.turno || 'Sin turno activo'}</span>
+          <span className="stat-sub" style={{ color: '#475569' }}>
             {turno?.totalTrabajadores > 0
-              ? `${turno.totalTrabajadores} trabajador(es) activo(s)`
-              : 'Sin trabajadores asignados'
+              ? `${turno.totalTrabajadores} trabajador(es) de turno`
+              : 'Sin personal asignado en esta franja'
             }
           </span>
           {turno?.trabajadores?.length > 0 && (
             <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
               {turno.trabajadores.map((t, i) => (
-                <span key={i} className="admin-badge badge-preparando" style={{ fontSize: '0.7rem' }}>
+                <span key={i} style={{ background: '#f3e8ff', color: '#7e22ce', padding: '3px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 600 }}>
                   {t.trabajador_nombre} {t.trabajador_apellido}
                 </span>
               ))}
@@ -105,40 +170,60 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        {/* Productos por vencer */}
-        <div className="admin-stat-card" style={{ borderLeft: '3px solid #f97316' }}>
-          <span className="stat-label"><FiRotateCw size={14} /> Productos por Vencer (&lt;24h)</span>
-          <span className="stat-value" style={{ fontSize: '1.3rem', color: expiring.length > 0 ? '#f97316' : '#22c55e' }}>
-            {expiring.length}
+        {/* Productos por Vencer */}
+        <div
+          className="admin-stat-card"
+          onClick={() => navigate('/admin/productos')}
+          style={{ borderLeft: '4px solid #f97316', cursor: 'pointer', background: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}
+          title="Ver inventarios de frescura"
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="stat-label" style={{ color: '#64748b' }}><FiRotateCw size={16} /> Alerta de Frescura (&lt;24h)</span>
+            <FiChevronRight size={16} style={{ color: '#f97316' }} />
+          </div>
+          <span className="stat-value" style={{ fontSize: '1.4rem', color: expiring.length > 0 ? '#ea580c' : '#16a34a' }}>
+            {expiring.length} por vencer
           </span>
           {expiring.length > 0 ? (
             <div style={{ marginTop: '4px' }}>
-              {expiring.slice(0, 3).map(p => (
-                <div key={p.id_producto} style={{ fontSize: '0.75rem', color: '#f97316', marginBottom: '2px' }}>
+              {expiring.slice(0, 2).map(p => (
+                <div key={p.id_producto} style={{ fontSize: '0.75rem', color: '#c2410c', fontWeight: 600 }}>
                   ⚠️ {p.nombre} — {Math.round(parseFloat(p.horas_restantes))}h restantes
                 </div>
               ))}
             </div>
-          ) : <span className="stat-sub">Todo el stock está fresco ✓</span>}
+          ) : (
+            <span className="stat-sub" style={{ color: '#16a34a', fontWeight: 600 }}>Todo el stock está fresco ✓</span>
+          )}
         </div>
 
-        {/* Devoluciones pendientes */}
-        <div className="admin-stat-card" style={{ borderLeft: `3px solid ${returnsCount > 0 ? '#ef4444' : '#22c55e'}` }}>
-          <span className="stat-label"><FiAlertTriangle size={14} /> Devoluciones Pendientes</span>
-          <span className="stat-value" style={{ fontSize: '1.3rem', color: returnsCount > 0 ? '#ef4444' : '#22c55e' }}>
-            {returnsCount}
+        {/* Devoluciones Pendientes */}
+        <div
+          className="admin-stat-card"
+          onClick={() => navigate('/admin/devoluciones')}
+          style={{ borderLeft: `4px solid ${returnsCount > 0 ? '#ef4444' : '#10b981'}`, cursor: 'pointer', background: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}
+          title="Ver solicitudes de devolución"
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="stat-label" style={{ color: '#64748b' }}><FiAlertTriangle size={16} /> Devoluciones Pendientes</span>
+            <FiChevronRight size={16} style={{ color: returnsCount > 0 ? '#ef4444' : '#10b981' }} />
+          </div>
+          <span className="stat-value" style={{ fontSize: '1.4rem', color: returnsCount > 0 ? '#dc2626' : '#16a34a' }}>
+            {returnsCount} pendientes
           </span>
-          <span className="stat-sub">
-            {returnsCount > 0 ? 'Requieren atención' : 'Sin devoluciones pendientes ✓'}
+          <span className="stat-sub" style={{ color: returnsCount > 0 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>
+            {returnsCount > 0 ? 'Requieren revisión administrativa' : 'Atención al cliente al día ✓'}
           </span>
         </div>
       </div>
 
-      {/* Gráficos de Ventas y Pedidos */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
-        {/* Gráfico 1: Historial de Ventas */}
-        <div className="card" style={{ padding: '24px' }}>
-          <h3 style={{ marginBottom: '16px', fontSize: '1rem', color: '#fff' }}>📈 Evolución Mensual de Ventas</h3>
+      {/* Clean White Analytics Charts Section */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '28px' }}>
+        {/* Sales Chart */}
+        <div style={{ background: '#ffffff', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+          <h3 style={{ marginBottom: '16px', fontSize: '1rem', color: '#0f172a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FiTrendingUp style={{ color: 'var(--color-primary)' }} /> Evolución Mensual de Ventas ($)
+          </h3>
           {(() => {
             const monthlyData = [
               { month: 'Ene', sales: resumen.ventasTotales * 0.4 },
@@ -159,26 +244,25 @@ export default function AdminDashboard() {
             return (
               <svg viewBox="0 0 400 200" style={{ width: '100%', height: '200px' }}>
                 <defs>
-                  <linearGradient id="salesGradAdmin" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#c47f3b" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#c47f3b" stopOpacity="0" />
+                  <linearGradient id="salesGradLight" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#c47f3b" stopOpacity="0.25" />
+                    <stop offset="100%" stopColor="#c47f3b" stopOpacity="0.0" />
                   </linearGradient>
                 </defs>
-                <line x1="45" y1="20" x2="380" y2="20" stroke="rgba(255,255,255,0.05)" />
-                <line x1="45" y1="70" x2="380" y2="70" stroke="rgba(255,255,255,0.05)" />
-                <line x1="45" y1="120" x2="380" y2="120" stroke="rgba(255,255,255,0.05)" />
-                <line x1="45" y1="170" x2="380" y2="170" stroke="rgba(255,255,255,0.1)" />
-                <text x="10" y="25" fill="#71717a" fontSize="8">${maxSales.toFixed(0)}</text>
-                <text x="10" y="95" fill="#71717a" fontSize="8">${(maxSales/2).toFixed(0)}</text>
-                <text x="10" y="165" fill="#71717a" fontSize="8">$0</text>
-                <path d={areaString} fill="url(#salesGradAdmin)" />
+                <line x1="45" y1="20" x2="380" y2="20" stroke="#f1f5f9" />
+                <line x1="45" y1="70" x2="380" y2="70" stroke="#f1f5f9" />
+                <line x1="45" y1="120" x2="380" y2="120" stroke="#f1f5f9" />
+                <line x1="45" y1="170" x2="380" y2="170" stroke="#e2e8f0" />
+                <text x="10" y="25" fill="#94a3b8" fontSize="9">${maxSales.toFixed(0)}</text>
+                <text x="10" y="95" fill="#94a3b8" fontSize="9">${(maxSales/2).toFixed(0)}</text>
+                <text x="10" y="165" fill="#94a3b8" fontSize="9">$0</text>
+                <path d={areaString} fill="url(#salesGradLight)" />
                 <path d={pathString} fill="none" stroke="#c47f3b" strokeWidth="3" />
                 {points.map((p, idx) => (
                   <g key={idx}>
-                    <title>{`${p.month}: $${p.sales.toFixed(2)}`}</title>
-                    <circle cx={p.x} cy={p.y} r="4" fill="#fff" stroke="#c47f3b" strokeWidth="2.5" />
-                    <text x={p.x} y="185" fill="#a1a1aa" fontSize="9" textAnchor="middle">{p.month}</text>
-                    <text x={p.x} y={p.y - 8} fill="#fff" fontSize="8" fontWeight="600" textAnchor="middle">${p.sales.toFixed(0)}</text>
+                    <circle cx={p.x} cy={p.y} r="4.5" fill="#ffffff" stroke="#c47f3b" strokeWidth="2.5" />
+                    <text x={p.x} y="186" fill="#64748b" fontSize="9" fontWeight="600" textAnchor="middle">{p.month}</text>
+                    <text x={p.x} y={p.y - 8} fill="#0f172a" fontSize="8" fontWeight="700" textAnchor="middle">${p.sales.toFixed(0)}</text>
                   </g>
                 ))}
               </svg>
@@ -186,9 +270,11 @@ export default function AdminDashboard() {
           })()}
         </div>
 
-        {/* Gráfico 2: Pedidos por Estado */}
-        <div className="card" style={{ padding: '24px' }}>
-          <h3 style={{ marginBottom: '16px', fontSize: '1rem', color: '#fff' }}>📊 Distribución de Pedidos por Estado</h3>
+        {/* Order Status Chart */}
+        <div style={{ background: '#ffffff', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+          <h3 style={{ marginBottom: '16px', fontSize: '1rem', color: '#0f172a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FiShoppingBag style={{ color: '#3b82f6' }} /> Distribución de Pedidos por Estado
+          </h3>
           {(() => {
             const states = pedidosPorEstado.length > 0 ? pedidosPorEstado : [
               { estado: 'pendiente', cantidad: 0 },
@@ -200,34 +286,33 @@ export default function AdminDashboard() {
             const maxCount = Math.max(...states.map(e => parseInt(e.cantidad)), 1);
             return (
               <svg viewBox="0 0 400 200" style={{ width: '100%', height: '200px' }}>
-                <line x1="40" y1="20" x2="380" y2="20" stroke="rgba(255,255,255,0.05)" />
-                <line x1="40" y1="65" x2="380" y2="65" stroke="rgba(255,255,255,0.05)" />
-                <line x1="40" y1="110" x2="380" y2="110" stroke="rgba(255,255,255,0.05)" />
-                <line x1="40" y1="155" x2="380" y2="155" stroke="rgba(255,255,255,0.05)" />
-                <line x1="40" y1="170" x2="380" y2="170" stroke="rgba(255,255,255,0.1)" />
+                <line x1="40" y1="20" x2="380" y2="20" stroke="#f1f5f9" />
+                <line x1="40" y1="65" x2="380" y2="65" stroke="#f1f5f9" />
+                <line x1="40" y1="110" x2="380" y2="110" stroke="#f1f5f9" />
+                <line x1="40" y1="155" x2="380" y2="155" stroke="#f1f5f9" />
+                <line x1="40" y1="170" x2="380" y2="170" stroke="#e2e8f0" />
                 {states.map((e, idx) => {
                   const width = 340 / states.length;
-                  const barWidth = Math.min(26, width - 8);
+                  const barWidth = Math.min(28, width - 8);
                   const x = 40 + idx * width + (width - barWidth) / 2;
                   const count = parseInt(e.cantidad);
                   const height = (count / maxCount) * 135;
                   const y = 170 - height;
                   const colors = {
-                    pendiente: '#eab308',
-                    confirmado: '#60a5fa',
-                    preparando: '#a855f7',
-                    en_camino: '#f97316',
-                    entregado: '#22c55e',
+                    pendiente: '#f59e0b',
+                    confirmado: '#3b82f6',
+                    preparando: '#8b5cf6',
+                    en_camino: '#ea580c',
+                    entregado: '#10b981',
                     cancelado: '#ef4444'
                   };
-                  const color = colors[e.estado] || '#a1a1aa';
+                  const color = colors[e.estado] || '#64748b';
                   return (
                     <g key={e.estado}>
-                      <title>{`${e.estado}: ${count} pedidos`}</title>
-                      <rect x={x} y={y} width={barWidth} height={height} fill={color} rx="4" opacity="0.85" />
-                      <text x={x + barWidth / 2} y="185" fill="#a1a1aa" fontSize="8" textAnchor="middle">{e.estado.substring(0, 6)}</text>
+                      <rect x={x} y={y} width={barWidth} height={height} fill={color} rx="4" />
+                      <text x={x + barWidth / 2} y="186" fill="#64748b" fontSize="8" fontWeight="600" textAnchor="middle">{e.estado.substring(0, 6)}</text>
                       {count > 0 && (
-                        <text x={x + barWidth / 2} y={y - 6} fill="#fff" fontSize="9" fontWeight="bold" textAnchor="middle">{count}</text>
+                        <text x={x + barWidth / 2} y={y - 6} fill="#0f172a" fontSize="9" fontWeight="700" textAnchor="middle">{count}</text>
                       )}
                     </g>
                   );
@@ -238,80 +323,70 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* Tables section */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
         {/* Pedidos recientes */}
-        <div className="admin-table-wrapper">
-          <div className="admin-table-header"><h3>Pedidos Recientes</h3></div>
-          <table className="admin-table">
+        <div className="admin-table-wrapper" style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+          <div className="admin-table-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px' }}>
+            <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#0f172a' }}>Pedidos Recientes</h3>
+            <button onClick={() => navigate('/admin/pedidos')} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}>
+              Ver todos →
+            </button>
+          </div>
+          <table className="admin-table" style={{ width: '100%' }}>
             <thead>
-              <tr><th>#</th><th>Cliente</th><th>Total</th><th>Estado</th></tr>
+              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                <th style={{ padding: '10px 16px', color: '#64748b', fontSize: '0.72rem' }}>#</th>
+                <th style={{ padding: '10px 16px', color: '#64748b', fontSize: '0.72rem' }}>Cliente</th>
+                <th style={{ padding: '10px 16px', color: '#64748b', fontSize: '0.72rem' }}>Total</th>
+                <th style={{ padding: '10px 16px', color: '#64748b', fontSize: '0.72rem' }}>Estado</th>
+              </tr>
             </thead>
             <tbody>
-              {pedidosRecientes.map(p => (
-                <tr key={p.id_pedido}>
-                  <td>#{p.id_pedido}</td>
-                  <td>{p.nombre} {p.apellido}</td>
-                  <td>${parseFloat(p.total).toFixed(2)}</td>
-                  <td><span className={`admin-badge badge-${p.estado}`}>{p.estado}</span></td>
+              {pedidosRecientes.slice(0, 5).map(p => (
+                <tr key={p.id_pedido} onClick={() => navigate('/admin/pedidos')} style={{ cursor: 'pointer', borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '12px 16px', fontWeight: 700, color: '#0f172a' }}>#{p.id_pedido}</td>
+                  <td style={{ padding: '12px 16px', color: '#334155' }}>{p.nombre} {p.apellido}</td>
+                  <td style={{ padding: '12px 16px', fontWeight: 700, color: '#16a34a' }}>${parseFloat(p.total).toFixed(2)}</td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <span className={`admin-badge badge-${p.estado}`} style={{ fontSize: '0.7rem' }}>
+                      {p.estado}
+                    </span>
+                  </td>
                 </tr>
               ))}
-              {pedidosRecientes.length === 0 && (
-                <tr><td colSpan={4} style={{textAlign:'center', color:'#52525b'}}>Sin pedidos aún</td></tr>
-              )}
             </tbody>
           </table>
         </div>
 
         {/* Productos más vendidos */}
-        <div className="admin-table-wrapper">
-          <div className="admin-table-header"><h3>Productos Más Vendidos</h3></div>
-          <table className="admin-table">
+        <div className="admin-table-wrapper" style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+          <div className="admin-table-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px' }}>
+            <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#0f172a' }}>Productos Más Vendidos</h3>
+            <button onClick={() => navigate('/admin/productos')} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}>
+              Ver catálogo →
+            </button>
+          </div>
+          <table className="admin-table" style={{ width: '100%' }}>
             <thead>
-              <tr><th>Producto</th><th>Precio</th><th>Vendidos</th><th>Stock</th></tr>
+              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                <th style={{ padding: '10px 16px', color: '#64748b', fontSize: '0.72rem' }}>Producto</th>
+                <th style={{ padding: '10px 16px', color: '#64748b', fontSize: '0.72rem' }}>Vendidos</th>
+                <th style={{ padding: '10px 16px', color: '#64748b', fontSize: '0.72rem' }}>Precio</th>
+              </tr>
             </thead>
             <tbody>
-              {topProductos.map(p => (
-                <tr key={p.id_producto}>
-                  <td>
-                    <div className="product-cell">
-                      {p.imagen_principal ? (
-                        <img src={p.imagen_principal} className="product-img" alt="" />
-                      ) : (
-                        <div className="product-img" style={{display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.2rem'}}>🍞</div>
-                      )}
-                      <span className="product-name">{p.nombre}</span>
-                    </div>
-                  </td>
-                  <td>${parseFloat(p.precio).toFixed(2)}</td>
-                  <td>{p.total_vendido}</td>
-                  <td>{p.stock}</td>
+              {topProductos.slice(0, 5).map(p => (
+                <tr key={p.id_producto} onClick={() => navigate('/admin/productos')} style={{ cursor: 'pointer', borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '12px 16px', fontWeight: 600, color: '#0f172a' }}>{p.nombre}</td>
+                  <td style={{ padding: '12px 16px', color: '#2563eb', fontWeight: 700 }}>{p.total_vendido} un.</td>
+                  <td style={{ padding: '12px 16px', color: '#16a34a', fontWeight: 700 }}>${parseFloat(p.precio).toFixed(2)}</td>
                 </tr>
               ))}
-              {topProductos.length === 0 && (
-                <tr><td colSpan={4} style={{textAlign:'center', color:'#52525b'}}>Sin ventas aún</td></tr>
-              )}
             </tbody>
           </table>
         </div>
       </div>
-
-      {/* Pedidos por estado */}
-      {pedidosPorEstado.length > 0 && (
-        <div className="admin-table-wrapper" style={{ marginTop: '24px' }}>
-          <div className="admin-table-header"><h3>Pedidos por Estado</h3></div>
-          <div style={{ padding: '24px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-            {pedidosPorEstado.map(e => (
-              <div key={e.estado} style={{
-                display: 'flex', alignItems: 'center', gap: '8px',
-                background: 'rgba(255,255,255,0.03)', padding: '12px 20px', borderRadius: '10px'
-              }}>
-                <span className={`admin-badge badge-${e.estado}`}>{e.estado}</span>
-                <span style={{ fontSize: '1.2rem', fontWeight: 700, color: '#fff' }}>{e.cantidad}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
