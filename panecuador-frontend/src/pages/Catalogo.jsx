@@ -61,39 +61,43 @@ export default function Catalogo() {
   return (
     <div className="catalogo-page">
       <div className="container">
-        {/* Header */}
-        <div className="catalogo-header">
-          <div>
-            <h1 className="catalogo-title">
-              {filters.search
-                ? `Resultados para "${filters.search}"`
-                : activeCategory
-                ? activeCategory.nombre
-                : 'Todos los Productos'}
-            </h1>
-            <p className="catalogo-count">{pagination.total} productos encontrados</p>
-          </div>
-          <div className="catalogo-controls">
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <FiFilter /> Filtros
-            </button>
-            <select
-              className="sort-select"
-              value={filters.ordenar}
-              onChange={(e) => setFilters({ ...filters, ordenar: e.target.value })}
-            >
-              <option value="reciente">Más recientes</option>
-              <option value="precio_asc">Precio: menor a mayor</option>
-              <option value="precio_desc">Precio: mayor a menor</option>
-              <option value="nombre">Nombre A-Z</option>
-              <option value="calificacion">Mejor calificados</option>
-              <option value="tiempo">Menor tiempo elaboración</option>
-              <option value="complejidad">Menor complejidad</option>
-            </select>
-          </div>
+        {/* Category Quick Pill Navigation Bar */}
+        <div style={{
+          display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '12px',
+          marginBottom: '24px', scrollbarWidth: 'thin'
+        }}>
+          <button
+            onClick={() => setFilters({ ...filters, categoria: '' })}
+            style={{
+              padding: '8px 18px', borderRadius: '30px', fontSize: '0.85rem', fontWeight: 600,
+              border: filters.categoria === '' ? 'none' : '1px solid var(--border-color)',
+              background: filters.categoria === '' ? 'var(--color-primary)' : 'var(--bg-card)',
+              color: filters.categoria === '' ? '#ffffff' : 'var(--text-secondary)',
+              cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s ease',
+              boxShadow: filters.categoria === '' ? '0 4px 12px rgba(196,127,59,0.25)' : 'none'
+            }}
+          >
+            🥐 Todos ({pagination.total})
+          </button>
+          {categories.map(cat => {
+            const isActive = filters.categoria == cat.id_categoria;
+            return (
+              <button
+                key={cat.id_categoria}
+                onClick={() => setFilters({ ...filters, categoria: cat.id_categoria })}
+                style={{
+                  padding: '8px 18px', borderRadius: '30px', fontSize: '0.85rem', fontWeight: 600,
+                  border: isActive ? 'none' : '1px solid rgba(196,127,59,0.15)',
+                  background: isActive ? 'var(--color-primary)' : 'var(--bg-card)',
+                  color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                  cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s ease',
+                  boxShadow: isActive ? '0 4px 12px rgba(196,127,59,0.25)' : 'none'
+                }}
+              >
+                {cat.nombre}
+              </button>
+            );
+          })}
         </div>
 
         <div className="catalogo-layout">
