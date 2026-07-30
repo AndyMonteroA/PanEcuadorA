@@ -196,6 +196,8 @@ export const adminAPI = {
 
   // Stock Renewal
   renewStock: (id, stock) => api.post(`/admin/products/${id}/renew-stock`, { stock }),
+  renewAllStock: (stock = 20) => api.post('/admin/products/renew-all-stock', { stock }),
+  getProducerSettlements: () => api.get('/admin/producer-settlements'),
 
   // Returns
   getReturns: (params) => api.get('/admin/returns', { params }),

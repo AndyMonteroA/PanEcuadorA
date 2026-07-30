@@ -1208,7 +1208,40 @@ router.post('/products/:id/renew-stock', async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+// POST /api/admin/products/renew-all-stock — Renovar stock y frescura de todos los productos
+router.post('/products/renew-all-stock', async (req, res, next) => {
+  try {
+    const { stock = 20 } = req.body;
+    const { renovarTodosElStock } = require('../services/stockRotation');
+    const result = await renovarTodosElStock(parseInt(stock));
+    res.json({
+      success: true,
+      message: `¡Frescura renovada! ${result.length} productos ahora están disponibles y frescos.`,
+      data: result
+    });
+  } catch (error) { next(error); }
 });
+
+// GET /api/admin/producer-settlements — Liquidaciones y compras a productores (PC * cantidad)
+router.get('/producer-settlements', async (req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT pr.id_productor, pr.nombre_negocio, pr.ciudad, pr.telefono, pr.email,
+             COUNT(DISTINCT dp.id_pedido) as total_pedidos,
+             COALESCE(SUM(dp.cantidad), 0) as total_unidades_vendidas,
+             COALESCE(SUM(p.precio_compra * dp.cantidad), 0) as total_pagar_productor,
+             COALESCE(SUM((dp.precio_unitario - p.precio_compra) * dp.cantidad), 0) as ganancia_panecuador
+      FROM productores pr
+      LEFT JOIN productos p ON pr.id_productor = p.id_productor
+      LEFT JOIN detalle_pedido dp ON p.id_producto = dp.id_producto
+      LEFT JOIN pedidos ped ON dp.id_pedido = ped.id_pedido AND ped.estado = 'entregado'
+      GROUP BY pr.id_productor, pr.nombre_negocio, pr.ciudad, pr.telefono, pr.email
+      ORDER BY total_pagar_productor DESC
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error) { next(error); }
+});
+
 
 // ============================================================
 // DEVOLUCIONES — CRUD

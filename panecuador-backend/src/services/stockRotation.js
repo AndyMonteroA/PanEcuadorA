@@ -8,42 +8,46 @@ const pool = require('../config/db');
 
 async function verificarStockVencido() {
   try {
-    console.log('🔄 Verificando stock vencido...');
+    console.log('🔄 Verificando rotación y frescura de stock...');
 
-    // Productos con stock vencido (fecha_elaboracion_stock + vida_util_dias < ahora)
+    // 1. Refrescar productos con stock que tenían fechas vencidas o nulas para mantener disponible = TRUE
+    await pool.query(`
+      UPDATE productos
+      SET disponible = TRUE,
+          fecha_elaboracion_stock = CURRENT_TIMESTAMP,
+          fecha_vencimiento_stock = CURRENT_TIMESTAMP + (COALESCE(vida_util_dias, 3) || ' days')::INTERVAL
+      WHERE (fecha_vencimiento_stock IS NULL OR fecha_vencimiento_stock < CURRENT_TIMESTAMP)
+        AND stock > 0
+    `);
+
+    // 2. Solo marcar disponible = FALSE si el stock es 0 o negativo
     const result = await pool.query(`
       UPDATE productos
       SET disponible = FALSE
-      WHERE fecha_elaboracion_stock IS NOT NULL
-        AND fecha_elaboracion_stock + (vida_util_dias || ' days')::INTERVAL < CURRENT_TIMESTAMP
-        AND disponible = TRUE
-        AND stock > 0
-      RETURNING id_producto, nombre, stock, vida_util_dias, fecha_elaboracion_stock
+      WHERE stock <= 0 AND disponible = TRUE
+      RETURNING id_producto, nombre, stock
     `);
-
-    if (result.rows.length > 0) {
-      console.log(`⚠️  ${result.rows.length} productos marcados como no disponibles por stock vencido:`);
-      result.rows.forEach(p => {
-        console.log(`   - ${p.nombre} (stock: ${p.stock}, elaborado: ${p.fecha_elaboracion_stock})`);
-      });
-
-      // Notificar a usuarios que tenían alertas de estos productos
-      for (const producto of result.rows) {
-        await pool.query(`
-          INSERT INTO notificaciones (id_usuario, tipo, mensaje)
-          SELECT ap.id_usuario, 'producto',
-                 'El producto "' || $2 || '" ha sido retirado temporalmente por frescura del stock.'
-          FROM alertas_producto ap
-          WHERE ap.id_producto = $1 AND ap.notificado = FALSE
-        `, [producto.id_producto, producto.nombre]);
-      }
-    } else {
-      console.log('✅ No hay stock vencido.');
-    }
 
     return result.rows;
   } catch (error) {
-    console.error('❌ Error al verificar stock vencido:', error);
+    console.error('❌ Error al verificar stock:', error);
+    throw error;
+  }
+}
+
+async function renovarTodosElStock(nuevoStockDefecto = 20) {
+  try {
+    const result = await pool.query(`
+      UPDATE productos
+      SET stock = CASE WHEN stock <= 0 THEN $1 ELSE stock END,
+          disponible = TRUE,
+          fecha_elaboracion_stock = CURRENT_TIMESTAMP,
+          fecha_vencimiento_stock = CURRENT_TIMESTAMP + (COALESCE(vida_util_dias, 3) || ' days')::INTERVAL
+      RETURNING *
+    `, [nuevoStockDefecto]);
+    return result.rows;
+  } catch (error) {
+    console.error('❌ Error renovando todo el stock:', error);
     throw error;
   }
 }
@@ -94,4 +98,4 @@ async function renovarStock(idProducto, nuevoStock) {
   }
 }
 
-module.exports = { verificarStockVencido, renovarStock };
+module.exports = { verificarStockVencido, renovarStock, renovarTodosElStock };

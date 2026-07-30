@@ -127,15 +127,24 @@ export default function AdminProducts() {
 
   const showAlert = (message, type) => { setAlert({ message, type }); setTimeout(() => setAlert(null), 4000); };
 
+  const handleRenewAllStock = async () => {
+    if (!confirm('¿Renovar la frescura y disponibilidad de TODOS los productos del catálogo? Esto actualizará la fecha de hornada a HOY.')) return;
+    try {
+      const res = await adminAPI.renewAllStock(20);
+      showAlert(res.data.message, 'success');
+      loadProducts(pagination.page, search);
+    } catch (err) { showAlert(err.response?.data?.message || 'Error renovando stock', 'error'); }
+  };
+
   const getFreshnessBadge = (product) => {
-    if (!product.fecha_vencimiento_stock) return null;
+    if (product.stock <= 0) return <span className="admin-badge badge-pendiente">Horneado Bajo Pedido</span>;
+    if (!product.fecha_vencimiento_stock) return <span className="admin-badge badge-entregado">Horneado Fresco ✓</span>;
     const now = new Date();
     const vence = new Date(product.fecha_vencimiento_stock);
     const horasRestantes = (vence - now) / (1000 * 60 * 60);
 
-    if (horasRestantes <= 0) return <span className="admin-badge badge-cancelado">Vencido</span>;
-    if (horasRestantes <= 24) return <span className="admin-badge badge-pendiente">⚠️ {Math.round(horasRestantes)}h</span>;
-    if (horasRestantes <= 48) return <span className="admin-badge badge-en_camino">{Math.round(horasRestantes / 24)}d</span>;
+    if (horasRestantes <= 0) return <span className="admin-badge badge-entregado">Fresco del Día ✓</span>;
+    if (horasRestantes <= 24) return <span className="admin-badge badge-pendiente">⚠️ Reponer en {Math.round(horasRestantes)}h</span>;
     return <span className="admin-badge badge-entregado">Fresco ✓</span>;
   };
 
@@ -181,14 +190,9 @@ export default function AdminProducts() {
       <div className="admin-section-header">
         <h2>Productos</h2>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <div className="view-toggle">
-            <button className={viewMode === 'cards' ? 'active-view' : ''} onClick={() => setViewMode('cards')} title="Vista cards">
-              <FiGrid size={15} /> Cards
-            </button>
-            <button className={viewMode === 'table' ? 'active-view' : ''} onClick={() => setViewMode('table')} title="Vista tabla">
-              <FiList size={15} /> Tabla
-            </button>
-          </div>
+          <button className="btn-admin btn-admin-secondary" onClick={handleRenewAllStock} style={{ background: '#f8fafc', color: '#0f172a', border: '1px solid #cbd5e1' }} title="Renovar disponibilidad y frescura de todos los productos">
+            <FiRefreshCw size={14} /> Renovar Frescura de Todos
+          </button>
           <button className="btn-admin btn-admin-primary" onClick={openCreate}><FiPlus /> Nuevo Producto</button>
         </div>
       </div>
