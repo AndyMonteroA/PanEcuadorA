@@ -44,15 +44,8 @@ router.post('/', authMiddleware, async (req, res, next) => {
 
     const items = carritoResult.rows;
 
-    // 2. Validar máximo 100 productos
+    // 2. Calcular total de items
     const totalItems = items.reduce((sum, item) => sum + item.cantidad, 0);
-    if (totalItems > 100) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({
-        success: false,
-        message: `El pedido no puede superar 100 productos. Tienes ${totalItems}.`
-      });
-    }
 
     // 3. Identificar si hay stock insuficiente (para cálculo de fecha dinámica)
     let hayStockInsuficiente = false;

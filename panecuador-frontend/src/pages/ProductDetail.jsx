@@ -294,16 +294,15 @@ export default function ProductDetail() {
                   onChange={(e) => {
                     const val = parseInt(e.target.value);
                     if (isNaN(val) || val < 1) setQuantity(e.target.value);
-                    else setQuantity(Math.min(val, 100));
+                    else setQuantity(val);
                   }}
                   onBlur={() => {
                     const val = parseInt(quantity);
                     if (isNaN(val) || val < 1) setQuantity(1);
                   }}
                   min={1}
-                  max={100}
                 />
-                <button onClick={() => setQuantity(Math.min(100, quantity + 1))} disabled={quantity >= 100}>
+                <button onClick={() => setQuantity(quantity + 1)}>
                   <FiPlus />
                 </button>
               </div>
@@ -322,20 +321,6 @@ export default function ProductDetail() {
             {addedMsg && (
               <div className={`pd-toast ${addedMsg.includes('Error') ? 'toast-error' : 'toast-success'}`}>
                 {addedMsg}
-              </div>
-            )}
-
-            {/* Desglose de disponibilidad cuando cantidad > stock */}
-            {quantity > (product.stock || 0) && quantity > 0 && (
-              <div className="pd-stock-breakdown">
-                <div className="stock-breakdown-row stock-immediate">
-                  <FiCheck size={14} />
-                  <span><strong>{Math.min(quantity, product.stock || 0)}</strong> unidad{Math.min(quantity, product.stock || 0) !== 1 ? 'es' : ''} — entrega inmediata</span>
-                </div>
-                <div className="stock-breakdown-row stock-pending">
-                  <FiClock size={14} />
-                  <span><strong>{quantity - (product.stock || 0)}</strong> unidad{(quantity - (product.stock || 0)) !== 1 ? 'es' : ''} — producción bajo pedido (+1 día)</span>
-                </div>
               </div>
             )}
 

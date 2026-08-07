@@ -88,19 +88,6 @@ router.post('/', authMiddleware, async (req, res, next) => {
       });
     }
 
-    // Verificar total del carrito no supere 100
-    const carritoActual = await pool.query(
-      'SELECT COALESCE(SUM(cantidad), 0) as total FROM carrito WHERE id_usuario = $1',
-      [req.user.id]
-    );
-
-    if (parseInt(carritoActual.rows[0].total) + cantidad > 100) {
-      return res.status(400).json({
-        success: false,
-        message: 'El carrito no puede superar 100 productos en total.'
-      });
-    }
-
     // Insertar o actualizar cantidad (UPSERT)
     const result = await pool.query(`
       INSERT INTO carrito (id_usuario, id_producto, cantidad)
@@ -145,21 +132,6 @@ router.put('/:id', authMiddleware, async (req, res, next) => {
 
     if (itemResult.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Item no encontrado.' });
-    }
-
-    // Verificar total del carrito
-    const carritoActual = await pool.query(
-      `SELECT COALESCE(SUM(cantidad), 0) - 
-              COALESCE((SELECT cantidad FROM carrito WHERE id_carrito = $1), 0) as total_sin_item
-       FROM carrito WHERE id_usuario = $2`,
-      [req.params.id, req.user.id]
-    );
-
-    if (parseInt(carritoActual.rows[0].total_sin_item) + cantidad > 100) {
-      return res.status(400).json({
-        success: false,
-        message: 'El carrito no puede superar 100 productos en total.'
-      });
     }
 
     const result = await pool.query(

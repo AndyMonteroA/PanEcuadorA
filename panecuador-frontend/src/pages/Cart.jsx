@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiTrash2, FiMinus, FiPlus, FiShoppingCart, FiArrowRight, FiAlertTriangle, FiLock, FiBox, FiClock, FiCheck } from 'react-icons/fi';
+import { FiTrash2, FiMinus, FiPlus, FiShoppingCart, FiArrowRight, FiLock, FiBox, FiClock } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import './Cart.css';
@@ -80,13 +80,6 @@ export default function Cart() {
               <span>${parseFloat(resumen.subtotal).toFixed(2)}</span>
             </div>
 
-            {resumen.superaLimite && (
-              <div className="summary-warning">
-                <FiAlertTriangle />
-                <span>Máximo 100 productos por pedido. Tienes {resumen.totalItems}.</span>
-              </div>
-            )}
-
             <div className="summary-divider" />
 
             <div className="summary-row summary-total">
@@ -96,7 +89,6 @@ export default function Cart() {
 
             <button
               className="btn btn-primary btn-lg summary-checkout-btn"
-              disabled={resumen.superaLimite}
               onClick={() => navigate('/checkout')}
             >
               Proceder al pago <FiArrowRight />
@@ -126,20 +118,13 @@ function CartItem({ item, updateQuantity, removeItem }) {
   }, [item.cantidad]);
 
   const handleQtyChange = (newQty) => {
-    // Validate
     const qty = parseInt(newQty);
     if (isNaN(qty) || qty < 1) {
-      setLocalQty(newQty); // Allow typing, validate on blur
-      return;
-    }
-    if (qty > 100) {
-      setLocalQty(100);
-      commitQty(100);
+      setLocalQty(newQty);
       return;
     }
     setLocalQty(qty);
     
-    // Debounce API call
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => commitQty(qty), 500);
   };
@@ -163,9 +148,7 @@ function CartItem({ item, updateQuantity, removeItem }) {
       setLocalQty(item.cantidad);
       return;
     }
-    const clampedQty = Math.min(qty, 100);
-    setLocalQty(clampedQty);
-    commitQty(clampedQty);
+    commitQty(qty);
   };
 
   return (
@@ -203,28 +186,14 @@ function CartItem({ item, updateQuantity, removeItem }) {
             onChange={(e) => handleQtyChange(e.target.value)}
             onBlur={handleBlur}
             min={1}
-            max={100}
           />
           <button 
             onClick={() => handleQtyChange((parseInt(localQty) || 0) + 1)}
-            disabled={(parseInt(localQty) || 0) >= 100 || updating}
+            disabled={updating}
           >
             <FiPlus />
           </button>
         </div>
-        {/* Desglose de disponibilidad */}
-        {item.requiere_reposicion ? (
-          <div className="cart-stock-breakdown">
-            <span className="stock-badge stock-immediate">
-              <FiCheck size={11} /> {item.disponible_inmediato} disponible{item.disponible_inmediato !== 1 ? 's' : ''}
-            </span>
-            <span className="stock-badge stock-pending">
-              <FiClock size={11} /> {item.pendiente_reposicion} en producción
-            </span>
-          </div>
-        ) : item.stock <= 5 && (
-          <span className="qty-stock-hint">Stock: {item.stock}</span>
-        )}
       </div>
 
       <div className="cart-item-price">
