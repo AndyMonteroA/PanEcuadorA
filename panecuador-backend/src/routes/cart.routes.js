@@ -24,20 +24,37 @@ router.get('/', authMiddleware, async (req, res, next) => {
       ORDER BY c.fecha_agregado DESC
     `, [req.user.id]);
 
-    // Calcular totales
+    // ============================================================
+    // LÓGICA MATEMÁTICA: Cálculos del Carrito
+    // ============================================================
+    // 1. Subtotal: Se calcula multiplicando el precio unitario por la cantidad
+    // 2. Tiempo Total: Se estima sumando el tiempo de elaboración por unidad multiplicado por la cantidad
+    // 3. Disponibilidad: Se divide la cantidad pedida en dos partes (inmediata vs pendiente)
+    //    usando funciones matemáticas (Math.min y Math.max) para no exceder el stock real.
+    // ============================================================
+    
     let subtotal = 0;
     let totalItems = 0;
     let tiempoElaboracionTotal = 0;
 
     const items = result.rows.map(item => {
+      // Fórmula: Subtotal del item = Precio * Cantidad
       const itemSubtotal = parseFloat(item.precio) * item.cantidad;
       subtotal += itemSubtotal;
       totalItems += item.cantidad;
+      
+      // Fórmula: Tiempo = (Minutos de elaboración) * Cantidad
       tiempoElaboracionTotal += item.tiempo_elaboracion_min * item.cantidad;
 
-      // Desglose de disponibilidad
+      // Desglose de disponibilidad (matemáticas de inventario)
       const stockActual = item.stock || 0;
+      
+      // Math.min garantiza que no prometamos más de lo que hay en stock. 
+      // Si piden 10 y hay 4, disponibleInmediato = 4.
       const disponibleInmediato = Math.min(item.cantidad, stockActual);
+      
+      // Math.max garantiza que los pendientes nunca sean negativos.
+      // Si piden 10 y hay 4, pendiente = 6. Si piden 2 y hay 4, pendiente = 0.
       const pendienteReposicion = Math.max(0, item.cantidad - stockActual);
 
       return {
@@ -57,8 +74,6 @@ router.get('/', authMiddleware, async (req, res, next) => {
           subtotal: subtotal.toFixed(2),
           totalItems,
           tiempoElaboracionEstimado: tiempoElaboracionTotal,
-          // Validación: máximo 100 productos por orden
-          superaLimite: totalItems > 100
         }
       }
     });
@@ -86,6 +101,28 @@ router.post('/', authMiddleware, async (req, res, next) => {
         success: false,
         message: 'Producto no encontrado.'
       });
+    }
+
+    // ============================================================
+    // REGLA DE NEGOCIO: Límite Dinámico del Carrito
+    // Obtenemos el límite desde la tabla configuracion_sitio.
+    // Si es mayor a 0, verificamos que la suma actual + la nueva cantidad no lo supere.
+    // ============================================================
+    const configResult = await pool.query("SELECT valor FROM configuracion_sitio WHERE clave = 'limite_carrito'");
+    const limiteCarrito = configResult.rows.length > 0 ? parseInt(configResult.rows[0].valor) : 0;
+
+    if (limiteCarrito > 0) {
+      const carritoActual = await pool.query(
+        'SELECT COALESCE(SUM(cantidad), 0) as total FROM carrito WHERE id_usuario = $1',
+        [req.user.id]
+      );
+      
+      if (parseInt(carritoActual.rows[0].total) + cantidad > limiteCarrito) {
+        return res.status(400).json({
+          success: false,
+          message: `El carrito no puede superar el límite de ${limiteCarrito} productos configurado por el administrador.`
+        });
+      }
     }
 
     // Insertar o actualizar cantidad (UPSERT)
@@ -132,6 +169,29 @@ router.put('/:id', authMiddleware, async (req, res, next) => {
 
     if (itemResult.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Item no encontrado.' });
+    }
+
+    // ============================================================
+    // REGLA DE NEGOCIO: Límite Dinámico al Actualizar
+    // ============================================================
+    const configResult = await pool.query("SELECT valor FROM configuracion_sitio WHERE clave = 'limite_carrito'");
+    const limiteCarrito = configResult.rows.length > 0 ? parseInt(configResult.rows[0].valor) : 0;
+
+    if (limiteCarrito > 0) {
+      // Calculamos el total actual menos el item que estamos modificando, más la nueva cantidad
+      const carritoActual = await pool.query(
+        `SELECT COALESCE(SUM(cantidad), 0) - 
+                COALESCE((SELECT cantidad FROM carrito WHERE id_carrito = $1), 0) as total_sin_item
+         FROM carrito WHERE id_usuario = $2`,
+        [req.params.id, req.user.id]
+      );
+
+      if (parseInt(carritoActual.rows[0].total_sin_item) + cantidad > limiteCarrito) {
+        return res.status(400).json({
+          success: false,
+          message: `El carrito no puede superar el límite de ${limiteCarrito} productos.`
+        });
+      }
     }
 
     const result = await pool.query(

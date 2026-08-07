@@ -47,6 +47,21 @@ router.post('/', authMiddleware, async (req, res, next) => {
     // 2. Calcular total de items
     const totalItems = items.reduce((sum, item) => sum + item.cantidad, 0);
 
+    // ============================================================
+    // REGLA DE NEGOCIO: Límite Dinámico del Pedido
+    // Verificamos el límite establecido por el administrador.
+    // ============================================================
+    const configResult = await client.query("SELECT valor FROM configuracion_sitio WHERE clave = 'limite_carrito'");
+    const limiteCarrito = configResult.rows.length > 0 ? parseInt(configResult.rows[0].valor) : 0;
+
+    if (limiteCarrito > 0 && totalItems > limiteCarrito) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        message: `El pedido no puede superar el límite de ${limiteCarrito} productos configurado por el administrador. Tienes ${totalItems}.`
+      });
+    }
+
     // 3. Identificar si hay stock insuficiente (para cálculo de fecha dinámica)
     let hayStockInsuficiente = false;
     for (const item of items) {
@@ -73,16 +88,22 @@ router.post('/', authMiddleware, async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Método de pago inválido.' });
     }
 
-    // 6. Calcular subtotal y tiempo estimado de elaboración
+    // ============================================================
+    // LÓGICA MATEMÁTICA: Subtotal del Pedido
+    // ============================================================
     let subtotal = 0;
     let tiempoEstimadoTotal = 0;
 
     items.forEach(item => {
+      // Fórmula: Subtotal = Σ (Precio * Cantidad)
       subtotal += parseFloat(item.precio) * item.cantidad;
+      // Fórmula: Tiempo de Elaboración = Σ (Tiempo_Base * Cantidad)
       tiempoEstimadoTotal += item.tiempo_elaboracion_min * item.cantidad;
     });
 
-    // 7. Aplicar cupón si existe
+    // ============================================================
+    // LÓGICA MATEMÁTICA: Descuento por Cupón
+    // ============================================================
     let descuento = 0;
     let idCupon = null;
 
@@ -106,15 +127,19 @@ router.post('/', authMiddleware, async (req, res, next) => {
         if (usoPrevio.rows.length === 0) {
           idCupon = cupon.id_cupon;
           if (cupon.tipo_descuento === 'porcentaje') {
+            // Fórmula: Descuento = Subtotal * (Porcentaje / 100)
             descuento = subtotal * (parseFloat(cupon.valor) / 100);
           } else {
+            // Fórmula: Descuento = Valor fijo (ej. $5)
             descuento = parseFloat(cupon.valor);
           }
         }
       }
     }
 
-    // 8. Verificar si tiene suscripción PanPass para descuento adicional
+    // ============================================================
+    // LÓGICA MATEMÁTICA: Descuento PanPass (Acumulable)
+    // ============================================================
     const suscripcionResult = await client.query(
       `SELECT m.descuento_porcentaje
        FROM suscripciones_usuario su
@@ -125,13 +150,22 @@ router.post('/', authMiddleware, async (req, res, next) => {
     );
 
     if (suscripcionResult.rows.length > 0) {
+      // Fórmula: Descuento PanPass = Subtotal * (Porcentaje_Membresía / 100)
+      // Nota: El descuento se calcula siempre sobre el subtotal original, no sobre el subtotal - cupón
       const descuentoPanPass = subtotal * (parseFloat(suscripcionResult.rows[0].descuento_porcentaje) / 100);
       descuento += descuentoPanPass;
     }
 
+    // ============================================================
+    // LÓGICA MATEMÁTICA: Total Final
+    // Fórmula: Total = Subtotal - Total_Descuentos
+    // Utilizamos Math.max(0, ...) para evitar que un descuento anómalo genere un total negativo.
+    // ============================================================
     const total = Math.max(0, subtotal - descuento);
 
-    // Calcular fecha y franja horaria estimada (Dinámica — Fórmula del Profesor)
+    // ============================================================
+    // LÓGICA MATEMÁTICA: Cálculo de Fechas Dinámicas (Fórmula del Profesor)
+    // ============================================================
     let finalFechaEntrega = fecha_entrega_programada;
     let finalFranjaHoraria = franja_horaria;
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { siteConfigAPI } from '../../services/api';
 import {
   FiSave, FiRefreshCw, FiLayout, FiType, FiImage, FiGlobe,
-  FiMail, FiPhone, FiInstagram, FiFacebook, FiEye, FiCheck
+  FiMail, FiPhone, FiInstagram, FiFacebook, FiEye, FiCheck, FiShoppingCart
 } from 'react-icons/fi';
 
 const SECTIONS = [
@@ -65,6 +65,14 @@ const SECTIONS = [
       { key: 'footer_texto',     label: 'Texto del footer', tipo: 'textarea', placeholder: '© 2026 PanEcuador...' },
     ]
   },
+  {
+    key: 'ventas',
+    label: '🛒 Ventas y Carrito',
+    icon: FiShoppingCart,
+    fields: [
+      { key: 'limite_carrito',     label: 'Límite de productos por carrito (0 para sin límite)', tipo: 'texto', placeholder: '9999' },
+    ]
+  }
 ];
 
 export default function AdminSiteConfig() {
