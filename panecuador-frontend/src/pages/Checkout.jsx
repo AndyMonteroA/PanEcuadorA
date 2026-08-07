@@ -636,7 +636,15 @@ export default function Checkout() {
               {items.map(item => (
                 <div key={item.id_carrito} className="summary-item">
                   <span className="summary-item-qty">{item.cantidad}x</span>
-                  <span className="summary-item-name">{item.nombre}</span>
+                  <div className="summary-item-detail">
+                    <span className="summary-item-name">{item.nombre}</span>
+                    {item.requiere_reposicion && (
+                      <div className="summary-item-stock-info">
+                        <span className="stock-mini stock-mini-ok">✅ {item.disponible_inmediato} inmediato</span>
+                        <span className="stock-mini stock-mini-pending">⏳ {item.pendiente_reposicion} en producción</span>
+                      </div>
+                    )}
+                  </div>
                   <span className="summary-item-price">${parseFloat(item.subtotal).toFixed(2)}</span>
                 </div>
               ))}

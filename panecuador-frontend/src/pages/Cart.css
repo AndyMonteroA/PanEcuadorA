@@ -264,6 +264,35 @@
   text-decoration: underline;
 }
 
+/* Stock breakdown badges */
+.cart-stock-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.stock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+.stock-immediate {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.stock-pending {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+}
+
 /* ============ RESPONSIVE ============ */
 @media (max-width: 1024px) {
   .cart-layout {

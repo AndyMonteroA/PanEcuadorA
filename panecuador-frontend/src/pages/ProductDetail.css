@@ -691,3 +691,43 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ============ STOCK BREAKDOWN (compra sobre stock) ============ */
+.pd-stock-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  margin-top: 8px;
+  animation: fadeSlideIn 0.3s ease;
+}
+
+.stock-breakdown-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.stock-breakdown-row.stock-immediate {
+  color: #059669;
+}
+
+.stock-breakdown-row.stock-pending {
+  color: #d97706;
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -35,9 +35,17 @@ router.get('/', authMiddleware, async (req, res, next) => {
       totalItems += item.cantidad;
       tiempoElaboracionTotal += item.tiempo_elaboracion_min * item.cantidad;
 
+      // Desglose de disponibilidad
+      const stockActual = item.stock || 0;
+      const disponibleInmediato = Math.min(item.cantidad, stockActual);
+      const pendienteReposicion = Math.max(0, item.cantidad - stockActual);
+
       return {
         ...item,
-        subtotal: itemSubtotal.toFixed(2)
+        subtotal: itemSubtotal.toFixed(2),
+        disponible_inmediato: disponibleInmediato,
+        pendiente_reposicion: pendienteReposicion,
+        requiere_reposicion: pendienteReposicion > 0
       };
     });
 
@@ -127,7 +135,7 @@ router.put('/:id', authMiddleware, async (req, res, next) => {
       });
     }
 
-    // Verificar stock del producto
+    // Verificar que el item existe
     const itemResult = await pool.query(
       `SELECT c.id_producto, p.stock, p.nombre FROM carrito c
        JOIN productos p ON c.id_producto = p.id_producto
@@ -137,14 +145,6 @@ router.put('/:id', authMiddleware, async (req, res, next) => {
 
     if (itemResult.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Item no encontrado.' });
-    }
-
-    const producto = itemResult.rows[0];
-    if (cantidad > producto.stock) {
-      return res.status(400).json({
-        success: false,
-        message: `Stock insuficiente de "${producto.nombre}". Disponible: ${producto.stock}`
-      });
     }
 
     // Verificar total del carrito

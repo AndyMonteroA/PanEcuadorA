@@ -287,8 +287,23 @@ export default function ProductDetail() {
                 <button onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1}>
                   <FiMinus />
                 </button>
-                <span>{quantity}</span>
-                <button onClick={() => setQuantity(Math.min(100, quantity + 1))}>
+                <input
+                  type="number"
+                  className="qty-input"
+                  value={quantity}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (isNaN(val) || val < 1) setQuantity(e.target.value);
+                    else setQuantity(Math.min(val, 100));
+                  }}
+                  onBlur={() => {
+                    const val = parseInt(quantity);
+                    if (isNaN(val) || val < 1) setQuantity(1);
+                  }}
+                  min={1}
+                  max={100}
+                />
+                <button onClick={() => setQuantity(Math.min(100, quantity + 1))} disabled={quantity >= 100}>
                   <FiPlus />
                 </button>
               </div>
@@ -310,12 +325,26 @@ export default function ProductDetail() {
               </div>
             )}
 
+            {/* Desglose de disponibilidad cuando cantidad > stock */}
+            {quantity > (product.stock || 0) && quantity > 0 && (
+              <div className="pd-stock-breakdown">
+                <div className="stock-breakdown-row stock-immediate">
+                  <FiCheck size={14} />
+                  <span><strong>{Math.min(quantity, product.stock || 0)}</strong> unidad{Math.min(quantity, product.stock || 0) !== 1 ? 'es' : ''} — entrega inmediata</span>
+                </div>
+                <div className="stock-breakdown-row stock-pending">
+                  <FiClock size={14} />
+                  <span><strong>{quantity - (product.stock || 0)}</strong> unidad{(quantity - (product.stock || 0)) !== 1 ? 'es' : ''} — producción bajo pedido (+1 día)</span>
+                </div>
+              </div>
+            )}
+
             {/* Stock info — Amazon style */}
             <div className="pd-stock-info">
               {product.disponible && product.stock > 5 ? (
                 <span className="badge badge-success"><FiCheck size={14} /> Disponible en tienda</span>
               ) : product.disponible && product.stock > 0 ? (
-                <span className="badge badge-warning"><FiAlertTriangle size={14} /> ¡Pocas unidades disponibles!</span>
+                <span className="badge badge-warning"><FiAlertTriangle size={14} /> ¡Pocas unidades disponibles! ({product.stock} en stock)</span>
               ) : (
                 <span className="badge badge-error"><FiClock size={14} /> Stock en reposición (Próxima hornada)</span>
               )}

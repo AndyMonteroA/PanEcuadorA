@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiTrash2, FiMinus, FiPlus, FiShoppingCart, FiArrowRight, FiAlertTriangle, FiLock, FiBox } from 'react-icons/fi';
+import { FiTrash2, FiMinus, FiPlus, FiShoppingCart, FiArrowRight, FiAlertTriangle, FiLock, FiBox, FiClock, FiCheck } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import './Cart.css';
@@ -132,9 +132,9 @@ function CartItem({ item, updateQuantity, removeItem }) {
       setLocalQty(newQty); // Allow typing, validate on blur
       return;
     }
-    if (qty > item.stock) {
-      setLocalQty(item.stock);
-      commitQty(item.stock);
+    if (qty > 100) {
+      setLocalQty(100);
+      commitQty(100);
       return;
     }
     setLocalQty(qty);
@@ -163,7 +163,7 @@ function CartItem({ item, updateQuantity, removeItem }) {
       setLocalQty(item.cantidad);
       return;
     }
-    const clampedQty = Math.min(qty, item.stock);
+    const clampedQty = Math.min(qty, 100);
     setLocalQty(clampedQty);
     commitQty(clampedQty);
   };
@@ -203,17 +203,27 @@ function CartItem({ item, updateQuantity, removeItem }) {
             onChange={(e) => handleQtyChange(e.target.value)}
             onBlur={handleBlur}
             min={1}
-            max={item.stock}
+            max={100}
           />
           <button 
             onClick={() => handleQtyChange((parseInt(localQty) || 0) + 1)}
-            disabled={(parseInt(localQty) || 0) >= item.stock || updating}
+            disabled={(parseInt(localQty) || 0) >= 100 || updating}
           >
             <FiPlus />
           </button>
         </div>
-        {item.stock <= 5 && (
-          <span className="qty-stock-hint">Max: {item.stock}</span>
+        {/* Desglose de disponibilidad */}
+        {item.requiere_reposicion ? (
+          <div className="cart-stock-breakdown">
+            <span className="stock-badge stock-immediate">
+              <FiCheck size={11} /> {item.disponible_inmediato} disponible{item.disponible_inmediato !== 1 ? 's' : ''}
+            </span>
+            <span className="stock-badge stock-pending">
+              <FiClock size={11} /> {item.pendiente_reposicion} en producción
+            </span>
+          </div>
+        ) : item.stock <= 5 && (
+          <span className="qty-stock-hint">Stock: {item.stock}</span>
         )}
       </div>
 
